@@ -8,7 +8,8 @@
 ## Deploy on Vercel
 1. Push this folder to a GitHub repo (or `vercel` CLI from this folder).
 2. Import it in Vercel. Framework: **Vite** (auto-detected). Leave build settings as they are.
-3. Add ONE environment variable: `JWT_SECRET` = a long random string, e.g.
+3. Recommended: add `JWT_SECRET` (if you skip it, a project-derived fallback secret is used so the site still works)
+   — = a long random string, e.g.
    `node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"`
 4. Deploy. Node 22 is selected from `package.json` (needed for `node:sqlite`).
 
