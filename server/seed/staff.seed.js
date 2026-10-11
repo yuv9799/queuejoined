@@ -61,7 +61,7 @@ export default function seedStaff() {
   const allTokens = all('SELECT id, department_id, status FROM tokens');
   for (const t of allTokens) {
     const dr = get(
-      'SELECT id FROM doctors WHERE department_id = ? AND active = 1 ORDER BY RANDOM() LIMIT 1',
+      'SELECT id FROM doctors WHERE department_id = ? AND active = 1 ORDER BY id LIMIT 1',
       t.department_id
     );
     if (dr) {

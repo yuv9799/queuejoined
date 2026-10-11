@@ -114,7 +114,28 @@ const COUNTERS = {
 
 const STATUSES = ['queued', 'queued', 'queued', 'completed', 'completed', 'completed', 'called', 'in_consultation', 'held', 'skipped'];
 
+// Deterministic PRNG so EVERY serverless instance seeds identical demo data
+// (otherwise each cold start would show different dashboard numbers).
+function mulberry32(a) {
+  return () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 export function seed() {
+  const realRandom = Math.random;
+  Math.random = mulberry32(20241011);
+  try {
+    return seedData();
+  } finally {
+    Math.random = realRandom;
+  }
+}
+
+function seedData() {
   migrate();
   reset();
 
@@ -187,7 +208,7 @@ export function seed() {
       const patient = patients[pi % patients.length];
       pi++;
 
-      const dr = get('SELECT id FROM doctors WHERE department_id = ? ORDER BY RANDOM() LIMIT 1', deptIds[areaDef.dept]);
+      const dr = get('SELECT id FROM doctors WHERE department_id = ? ORDER BY id LIMIT 1', deptIds[areaDef.dept]);
 
       run(
         `INSERT INTO tokens

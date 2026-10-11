@@ -23,6 +23,7 @@ Demo logins (auto-seeded): `admin@kims.in / admin123`, `officer@kims.in / office
   but tokens/reviews created by users can disappear and different instances may not share
   data. Fine for a demo or project submission; for real use move to a hosted database
   (Turso/libSQL, Neon Postgres, Supabase).
+- Demo data is seeded deterministically, so every instance starts with identical numbers. Changes made while using the site (new tokens, calls, reviews) still live only on the instance that handled them.
 - **No WebSockets on Vercel.** Live updates use 5-second polling instead of Socket.io.
 - SMS/WhatsApp/AI settings are optional env vars (see `.env.example`).
 
