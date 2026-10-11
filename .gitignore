@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.vite/
+.vercel/
+.env
+.env.*
+!.env.example
+*.log
+*.db
+*.db-wal
+*.db-shm
+server/data/
+.DS_Store
