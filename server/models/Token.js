@@ -82,6 +82,9 @@ export function findById(id) {
 }
 
 export function findByNumber(number) {
+  // Accept the full code printed on the ticket too, e.g. "CARD-007" or "card 7".
+  const m = /^([A-Za-z]+)[\s-]*0*(\d+)$/.exec(String(number ?? '').trim());
+  if (m) return findByCode(m[1], Number(m[2]));
   return mapRow(
     get(`SELECT ${TOKEN_ROW} ${JOIN} WHERE t.token_number = ? ORDER BY t.id DESC LIMIT 1`, number)
   );

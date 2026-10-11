@@ -26,6 +26,18 @@ function normalize(value) {
     .trim();
 }
 
+// Match a term as a real word (so "ent" does not match "appointment").
+// Short terms must be a whole word; longer ones may be a word prefix (plurals etc.).
+function queryHasTerm(query, rawTerm) {
+  const term = normalize(rawTerm);
+  if (!term) return false;
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = term.length <= 3
+    ? `(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`
+    : `(?<![\\p{L}\\p{N}])${escaped}`;
+  return new RegExp(pattern, 'u').test(query);
+}
+
 function departmentMatchesAlias(department, alias) {
   const data = normalize(`${department.name} ${department.code}`);
   return alias.department.some((term) => term === 'ent'
@@ -48,7 +60,7 @@ export function rankDepartments(description, departments) {
     }
     for (const alias of SPECIALTY_ALIASES) {
       if (departmentMatchesAlias(department, alias)
-        && alias.terms.some((term) => query.includes(normalize(term)))) {
+        && alias.terms.some((term) => queryHasTerm(query, term))) {
         score += 6;
       }
     }
