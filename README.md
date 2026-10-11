@@ -20,8 +20,8 @@ Demo logins (auto-seeded): `admin@kims.in / admin123`, `officer@kims.in / office
 ## Make data permanent and shared (one-time, free, ~2 minutes)
 Vercel runs the API on many instances, each with its own temporary disk. To make them behave
 like one server, connect a free Redis store; the app then saves the database there.
-1. Vercel dashboard -> your project -> **Storage** -> **Create Database** -> choose **Upstash for Redis** (free plan) -> connect it to this project (all environments).
-2. Vercel adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` automatically.
+1. Vercel dashboard -> your project -> **Storage** -> **Create Database** -> choose **Redis** or **Upstash for Redis** (free plan) -> connect it to this project (all environments).
+2. Vercel adds the connection variables automatically (`REDIS_URL` for Redis, or `KV_REST_API_URL`/`KV_REST_API_TOKEN` for Upstash — both are supported).
 3. **Redeploy** (Deployments -> ... -> Redeploy). Check `/api/health` shows `"sharedStorage":true`.
 
 Without it the site still works, but each instance has its own data, so stats and tokens can differ between requests.

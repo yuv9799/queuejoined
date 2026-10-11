@@ -22,8 +22,10 @@ function findEnv(suffixes) {
 }
 const URL_ = findEnv(['KV_REST_API_URL', 'UPSTASH_REDIS_REST_URL']);
 const TOKEN = findEnv(['KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_TOKEN']);
+// Standard Redis connection string (Vercel "Redis" / Redis Cloud integration).
+const REDIS_URL = findEnv(['REDIS_URL']);
 
-export const persistenceEnabled = Boolean(process.env.VERCEL && URL_ && TOKEN);
+export const persistenceEnabled = Boolean(process.env.VERCEL && ((URL_ && TOKEN) || REDIS_URL));
 
 const DATA_KEY = 'kims:db:data';
 const VER_KEY = 'kims:db:ver';
@@ -31,7 +33,32 @@ const LOCK_KEY = 'kims:db:lock';
 
 let localVersion = null;
 
+let redisClient = null;
+async function getRedis() {
+  if (redisClient?.isOpen) return redisClient;
+  const { createClient } = await import('redis');
+  const client = createClient({
+    url: REDIS_URL,
+    socket: { connectTimeout: 5000, reconnectStrategy: false },
+  });
+  client.on('error', (err) => console.error('Redis client error:', err.message));
+  await client.connect();
+  redisClient = client;
+  return client;
+}
+
+// One command, via node-redis (REDIS_URL) or the Upstash REST API.
 async function cmd(...args) {
+  if (REDIS_URL) {
+    try {
+      const client = await getRedis();
+      return await client.sendCommand(args.map(String));
+    } catch (err) {
+      try { await redisClient?.disconnect(); } catch { /* ignore */ }
+      redisClient = null; // reconnect on the next call
+      throw err;
+    }
+  }
   const res = await fetch(URL_, {
     method: 'POST',
     headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
