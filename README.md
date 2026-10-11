@@ -17,14 +17,18 @@ Demo logins (auto-seeded): `admin@kims.in / admin123`, `officer@kims.in / office
 `reception@kims.in / reception123`. Phone login OTP for demo staff is `123456`
 (disable with `ALLOW_DEMO_OTP=0`).
 
-## Important limits of running the backend on Vercel
-- **Data is not permanent.** SQLite lives in `/tmp`, which is per-instance and wiped on cold
-  starts / redeploys. The database re-seeds itself automatically, so the site always works,
-  but tokens/reviews created by users can disappear and different instances may not share
-  data. Fine for a demo or project submission; for real use move to a hosted database
-  (Turso/libSQL, Neon Postgres, Supabase).
-- Demo data is seeded deterministically, so every instance starts with identical numbers. Changes made while using the site (new tokens, calls, reviews) still live only on the instance that handled them.
-- **No WebSockets on Vercel.** Live updates use 5-second polling instead of Socket.io.
+## Make data permanent and shared (one-time, free, ~2 minutes)
+Vercel runs the API on many instances, each with its own temporary disk. To make them behave
+like one server, connect a free Redis store; the app then saves the database there.
+1. Vercel dashboard -> your project -> **Storage** -> **Create Database** -> choose **Upstash for Redis** (free plan) -> connect it to this project (all environments).
+2. Vercel adds `KV_REST_API_URL` and `KV_REST_API_TOKEN` automatically.
+3. **Redeploy** (Deployments -> ... -> Redeploy). Check `/api/health` shows `"sharedStorage":true`.
+
+Without it the site still works, but each instance has its own data, so stats and tokens can differ between requests.
+
+## Other limits
+- No WebSockets on Vercel: live updates use 5-second polling instead of Socket.io.
+- Writes are serialised with a short lock, so very high write traffic will be slower. Fine for a demo / college project; for heavy production use, migrate to a real database (Turso/Neon).
 - SMS/WhatsApp/AI settings are optional env vars (see `.env.example`).
 
 ## Local development

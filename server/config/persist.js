@@ -1,0 +1,76 @@
+// Shared persistence for serverless hosting.
+//
+// Vercel runs the API on many short-lived instances, each with its own /tmp.
+// To make them behave like ONE server, the SQLite file is snapshotted into a
+// shared Redis (Upstash, via Vercel Storage / Marketplace):
+//   - every request first loads the newest snapshot (only if its version changed)
+//   - every write request takes a short global lock, runs, then saves a snapshot
+// Without the Redis env vars this module is inert and the app uses local /tmp only.
+import { gzipSync, gunzipSync } from 'node:zlib';
+import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import { DB_FILE, db, replaceDatabaseFile, migrate } from './db.js';
+
+const URL_ = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+const TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
+export const persistenceEnabled = Boolean(process.env.VERCEL && URL_ && TOKEN);
+
+const DATA_KEY = 'kims:db:data';
+const VER_KEY = 'kims:db:ver';
+const LOCK_KEY = 'kims:db:lock';
+
+let localVersion = null;
+
+async function cmd(...args) {
+  const res = await fetch(URL_, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(args),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.error) throw new Error(`Redis error: ${json.error || res.status}`);
+  return json.result;
+}
+
+// Load the latest shared snapshot if ours is stale. Returns false if none exists yet.
+export async function syncFromRemote() {
+  const remoteVersion = await cmd('GET', VER_KEY);
+  if (!remoteVersion) return false;
+  if (remoteVersion === localVersion) return true;
+  const data = await cmd('GET', DATA_KEY);
+  if (!data) return false;
+  replaceDatabaseFile(gunzipSync(Buffer.from(data, 'base64')));
+  migrate(); // bring an older snapshot up to the current schema (idempotent)
+  localVersion = remoteVersion;
+  return true;
+}
+
+export async function pushToRemote() {
+  const buf = gzipSync(fs.readFileSync(DB_FILE));
+  const version = randomUUID();
+  await cmd('MSET', DATA_KEY, buf.toString('base64'), VER_KEY, version);
+  localVersion = version;
+}
+
+// Global write lock so two instances never overwrite each other's changes.
+export async function acquireLock() {
+  const owner = randomUUID();
+  for (let i = 0; i < 80; i++) {
+    const ok = await cmd('SET', LOCK_KEY, owner, 'NX', 'PX', '8000');
+    if (ok === 'OK') return owner;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  throw new Error('Could not acquire write lock');
+}
+
+export async function releaseLock(owner) {
+  try {
+    const current = await cmd('GET', LOCK_KEY);
+    if (current === owner) await cmd('DEL', LOCK_KEY);
+  } catch { /* lock expires on its own after 8s */ }
+}
+
+export function localHasData() {
+  return Boolean(db.prepare('SELECT id FROM departments LIMIT 1').get());
+}

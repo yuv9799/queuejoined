@@ -3,6 +3,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import { migrate } from './config/db.js';
 import { corsOptions } from './config/cors.js';
+import { persistenceEnabled } from './config/persist.js';
 
 import auth from './routes/auth.js';
 import departments from './routes/departments.js';
@@ -35,8 +36,8 @@ export function createApp() {
   app.use(express.json({ limit: '1mb' }));
   if (!process.env.VERCEL) app.use(morgan('dev'));
 
-  app.get('/health', (req, res) => res.json({ ok: true, service: 'kims-queue', ts: new Date().toISOString() }));
-  app.get('/api/health', (req, res) => res.json({ ok: true, service: 'kims-queue', ts: new Date().toISOString() }));
+  app.get('/health', (req, res) => res.json({ ok: true, service: 'kims-queue', sharedStorage: persistenceEnabled, ts: new Date().toISOString() }));
+  app.get('/api/health', (req, res) => res.json({ ok: true, service: 'kims-queue', sharedStorage: persistenceEnabled, ts: new Date().toISOString() }));
 
   // Root routes
   app.use('/auth', auth);

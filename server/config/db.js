@@ -13,10 +13,28 @@ const DB_PATH = process.env.DB_PATH
 
 fs.mkdirSync(path.dirname(path.resolve(DB_PATH)), { recursive: true });
 
-export const db = new DatabaseSync(DB_PATH);
-db.exec('PRAGMA journal_mode = WAL;');
-db.exec('PRAGMA foreign_keys = ON;');
-db.exec('PRAGMA busy_timeout = 5000;');
+export const DB_FILE = path.resolve(DB_PATH);
+
+// ESM live binding: reopenDb() swaps this connection and every importer sees it.
+export let db = openConnection();
+
+function openConnection() {
+  const conn = new DatabaseSync(DB_PATH);
+  // On Vercel use a rollback journal so the DB is ONE self-contained file that
+  // can be snapshotted to shared storage (no -wal / -shm side files).
+  conn.exec(process.env.VERCEL ? 'PRAGMA journal_mode = DELETE;' : 'PRAGMA journal_mode = WAL;');
+  conn.exec('PRAGMA foreign_keys = ON;');
+  conn.exec('PRAGMA busy_timeout = 5000;');
+  return conn;
+}
+
+// Replace the on-disk database file with new bytes and reconnect.
+export function replaceDatabaseFile(buffer) {
+  try { db.close(); } catch { /* already closed */ }
+  for (const ext of ['-wal', '-shm', '-journal']) fs.rmSync(DB_FILE + ext, { force: true });
+  fs.writeFileSync(DB_FILE, buffer);
+  db = openConnection();
+}
 
 export const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (

@@ -4,21 +4,21 @@ import '../server/env.js';
 let appPromise;
 
 async function loadApp() {
-  const [{ createApp }, { all }, { seed }] = await Promise.all([
+  const [{ createApp }, { all }, { seed }, persist] = await Promise.all([
     import('../server/app.js'),
     import('../server/config/db.js'),
     import('../server/seed/seed.js'),
+    import('../server/config/persist.js'),
   ]);
 
-  // Serverless instances start with an empty /tmp database: seed it once per
-  // cold start (departments, areas, counters, doctors, demo staff, sample data).
-  if (all('SELECT id FROM departments LIMIT 1').length === 0) seed();
+  // Without shared storage: seed this instance's own /tmp database once.
+  if (!persist.persistenceEnabled && all('SELECT id FROM departments LIMIT 1').length === 0) seed();
 
   const app = createApp();
   // Socket.io can't run on serverless; routes broadcast through this no-op and
   // the frontend refreshes by polling instead.
   app.set('io', { emit() {}, to() { return this; }, in() { return this; } });
-  return app;
+  return { app, persist, seed };
 }
 
 // Vercel's Node helpers may already have read + parsed the request body, which
@@ -36,12 +36,51 @@ async function adoptParsedBody(req) {
   req._body = true;
 }
 
+// With shared storage on: make every instance act like one server.
+async function withSharedState({ persist, seed }, req, res) {
+  const writes = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
+  let lockOwner = null;
+  if (writes) lockOwner = await persist.acquireLock();
+  let released = false;
+  const release = async () => {
+    if (lockOwner && !released) { released = true; await persist.releaseLock(lockOwner); }
+  };
+
+  try {
+    const found = await persist.syncFromRemote();
+    if (!found) {
+      // First ever request (or storage was cleared): seed and publish the baseline.
+      if (!persist.localHasData()) seed();
+      await persist.pushToRemote();
+    }
+  } catch (err) {
+    await release();
+    throw err;
+  }
+
+  if (writes) {
+    // Save the snapshot BEFORE the response is sent, then free the lock.
+    const originalEnd = res.end.bind(res);
+    res.end = (...args) => {
+      const done = async () => {
+        try { if (res.statusCode < 500) await persist.pushToRemote(); }
+        catch (err) { console.error('Failed to save shared state:', err); }
+        finally { await release(); }
+      };
+      done().finally(() => originalEnd(...args));
+      return res;
+    };
+    res.on('close', release);
+  }
+}
+
 export default async function handler(req, res) {
   try {
     appPromise ||= loadApp();
-    const app = await appPromise;
+    const ctx = await appPromise;
     await adoptParsedBody(req);
-    return app(req, res);
+    if (ctx.persist.persistenceEnabled) await withSharedState(ctx, req, res);
+    return ctx.app(req, res);
   } catch (err) {
     appPromise = undefined; // allow a retry on the next request
     console.error('API failed to start:', err);
