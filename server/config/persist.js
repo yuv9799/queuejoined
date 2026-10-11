@@ -11,8 +11,17 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import { DB_FILE, db, replaceDatabaseFile, migrate } from './db.js';
 
-const URL_ = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+// Accept the standard names AND any custom prefix chosen in the Vercel integration
+// (e.g. STORAGE_KV_REST_API_URL / STORAGE_KV_REST_API_TOKEN).
+function findEnv(suffixes) {
+  for (const name of suffixes) if (process.env[name]) return process.env[name];
+  const key = Object.keys(process.env).find(
+    (k) => suffixes.some((suf) => k.endsWith(`_${suf}`)) && process.env[k]
+  );
+  return key ? process.env[key] : undefined;
+}
+const URL_ = findEnv(['KV_REST_API_URL', 'UPSTASH_REDIS_REST_URL']);
+const TOKEN = findEnv(['KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_TOKEN']);
 
 export const persistenceEnabled = Boolean(process.env.VERCEL && URL_ && TOKEN);
 
