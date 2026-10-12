@@ -40,7 +40,9 @@ export default function LiveBoard() {
     api.departments().then((d) => setDepartments(d.departments)).catch(() => {});
     refresh();
     const off = subscribeAll(() => refresh());
-    const t = setInterval(refresh, 15000); // safety fallback
+    // Safety net only: version-gated updates do the real work. Slow, and skipped
+    // while the tab is hidden, so an idle/background tab makes no requests.
+    const t = setInterval(() => { if (!document.hidden) refresh(); }, 60000);
     return () => {
       off();
       clearInterval(t);

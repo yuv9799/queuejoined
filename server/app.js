@@ -4,6 +4,7 @@ import morgan from 'morgan';
 import { migrate } from './config/db.js';
 import { corsOptions } from './config/cors.js';
 import { persistenceEnabled } from './config/persist.js';
+import { bumpVersion, currentVersion } from './config/version.js';
 
 import auth from './routes/auth.js';
 import departments from './routes/departments.js';
@@ -35,6 +36,32 @@ export function createApp() {
   app.use(cors(corsOptions()));
   app.use(express.json({ limit: '1mb' }));
   if (!process.env.VERCEL) app.use(morgan('dev'));
+
+  // Bump the data version after every successful write.
+  app.use((req, res, next) => {
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+      res.on('finish', () => { if (res.statusCode < 400) bumpVersion(); });
+    }
+    next();
+  });
+
+  // Public, identical-for-everyone reads may be cached briefly at the CDN edge,
+  // so 100 viewers of the live board cost ~1 function call per few seconds.
+  const PUBLIC_EDGE_CACHE = /^\/(?:api\/)?(?:version|tokens\/live|departments|areas|stats\/overview|doctors\/public)\/?$/;
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.headers.authorization && PUBLIC_EDGE_CACHE.test(req.path)) {
+      // Browsers must always revalidate (no stale copy); only the Vercel CDN may
+      // hold a copy. Requests carrying ?_v=<data version> are keyed by version, so
+      // a longer edge TTL is safe: any write changes the version -> a new cache key.
+      const versioned = req.query._v && req.path !== '/version' && req.path !== '/api/version';
+      res.set('Cache-Control', 'public, max-age=0, must-revalidate');
+      res.set('Vercel-CDN-Cache-Control', versioned
+        ? 's-maxage=30, stale-while-revalidate=30'
+        : 's-maxage=2, stale-while-revalidate=2');
+    }
+    next();
+  });
+  app.get(['/version', '/api/version'], (req, res) => res.json({ v: currentVersion() }));
 
   app.get('/health', (req, res) => res.json({ ok: true, service: 'kims-queue', sharedStorage: persistenceEnabled, ts: new Date().toISOString() }));
   app.get('/api/health', (req, res) => res.json({ ok: true, service: 'kims-queue', sharedStorage: persistenceEnabled, ts: new Date().toISOString() }));

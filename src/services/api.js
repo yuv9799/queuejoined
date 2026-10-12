@@ -1,3 +1,4 @@
+import { getDataVersion } from './dataVersion.js';
 // API base URL.
 // Merged deployment: the backend runs as a Vercel serverless function on the
 // SAME origin under /api, so no configuration is needed. In local dev, Vite
@@ -7,7 +8,41 @@ const CONFIGURED_BASE = String(import.meta.env.VITE_API_URL || '').replace(/\/+$
 const BASE = CONFIGURED_BASE || '/api';
 export const IS_EXTERNAL_API = Boolean(CONFIGURED_BASE);
 
-async function request(path, { method = 'GET', body, token, ownerKey, signal } = {}) {
+// Identical GETs that are already in flight share ONE network request (e.g. the
+// navbar, the live card and the page all asking for /tokens/live at once).
+// Requests with an AbortSignal are never shared, so cancelling stays per-caller.
+const inflight = new Map();
+
+// Public, identical-for-everyone reads that the CDN may cache. They are keyed by
+// the current data version (?_v=...) so a cached copy can never be stale.
+const VERSION_KEYED = /^\/(?:tokens\/live|departments|areas|stats\/overview|doctors\/public)(?:\?|$)/;
+function withVersion(path, method, token) {
+  const v = getDataVersion();
+  if (method !== 'GET' || token || !v || !VERSION_KEYED.test(path)) return path;
+  return `${path}${path.includes('?') ? '&' : '?'}_v=${encodeURIComponent(v)}`;
+}
+
+function request(rawPath, opts = {}) {
+  const method = opts.method || 'GET';
+  const path = withVersion(rawPath, method, opts.token);
+  if (method !== 'GET' || opts.signal) return rawRequest(path, opts).then(afterWrite(method));
+  const key = `${path}|${opts.token || ''}|${opts.ownerKey || ''}`;
+  if (inflight.has(key)) return inflight.get(key);
+  const p = rawRequest(path, opts).finally(() => inflight.delete(key));
+  inflight.set(key, p);
+  return p;
+}
+
+// After the user's own successful write, nudge the polling socket to check for
+// changes right away (so their screen updates without waiting for the next tick).
+function afterWrite(method) {
+  return (data) => {
+    if (method !== 'GET' && typeof window !== 'undefined') window.dispatchEvent(new Event('kims:write'));
+    return data;
+  };
+}
+
+async function rawRequest(path, { method = 'GET', body, token, ownerKey, signal } = {}) {
   if (!BASE) {
     const err = new Error(
       'Backend API is not configured. Set VITE_API_URL at build time to your deployed backend URL.'

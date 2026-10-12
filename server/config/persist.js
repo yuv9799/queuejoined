@@ -118,6 +118,9 @@ export async function sessionSet(id, state, ttlSeconds) {
   await cmd('SET', `kims:ai:${id}`, JSON.stringify(state), 'EX', String(ttlSeconds));
 }
 
+// Version of the shared data snapshot this instance is currently serving.
+export function getLocalVersion() { return localVersion; }
+
 export function localHasData() {
   return Boolean(db.prepare('SELECT id FROM departments LIMIT 1').get());
 }

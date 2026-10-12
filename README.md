@@ -31,6 +31,21 @@ Without it the site still works, but each instance has its own data, so stats an
 - Writes are serialised with a short lock, so very high write traffic will be slower. Fine for a demo / college project; for heavy production use, migrate to a real database (Turso/Neon).
 - SMS/WhatsApp/AI settings are optional env vars (see `.env.example`).
 
+## Performance: how live updates avoid overloading the server
+The frontend used to re-download the whole live queue every 5 seconds on every page (24-48
+requests/min per visitor). It now works like this:
+- **Version-gated polling**: one shared timer asks `GET /api/version` (a few bytes). Heavy data
+  (`/tokens/live`, `/stats/overview`, ...) is re-fetched only when the version actually changed.
+- **Adaptive back-off + jitter**: 5s while data is changing, slowing to 30s when idle; resets on any change,
+  tab focus, or the user's own write.
+- **Zero requests when the tab is hidden or the browser is offline**; one catch-up check when it returns.
+- **Request de-duplication**: identical GETs in flight share one network call.
+- **Version-keyed CDN caching**: public reads carry `?_v=<version>` and are cached at the Vercel edge, so
+  many viewers cost about one function call per version instead of one per viewer. A write changes the
+  version, which changes the cache key, so cached data is never stale.
+- Measured locally on an idle page for 60 s: 24-48 requests -> 5 tiny version checks (-80% to -90%),
+  and a token created elsewhere appears on screen within ~3-6 s.
+
 ## Local development
 ```
 npm install

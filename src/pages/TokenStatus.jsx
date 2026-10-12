@@ -204,11 +204,12 @@ export default function TokenStatus() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Polling fallback (6s)
+  // Safety net (60s, only while the tab is visible). Live changes arrive through
+  // the shared version-gated poller above, so there is no per-page 6s polling.
   useEffect(() => {
     const t = setInterval(() => {
-      if (currentId.current) scheduleLoad(currentId.current);
-    }, 6000);
+      if (!document.hidden && currentId.current) scheduleLoad(currentId.current);
+    }, 60000);
     return () => {
       clearInterval(t);
       clearTimeout(loadTimerRef.current);
