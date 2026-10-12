@@ -168,8 +168,7 @@ export default function AIAssistant() {
         setOpen(false);
         return;
       case 'OPEN_DEPARTMENTS':
-        navigate('/departments');
-        setOpen(false);
+        navigate('/departments'); // keep the chat open so the conversation isn't lost
         return;
       case 'OPEN_KIOSK':
         navigate('/');

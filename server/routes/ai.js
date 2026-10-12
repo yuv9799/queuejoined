@@ -7,6 +7,7 @@ import {
   AI_SESSION_TTL_MS,
 } from '../config/ai.js';
 import { createAssistantState, handleAssistantRequest } from '../services/ai/assistant.js';
+import { persistenceEnabled, sessionGet, sessionSet } from '../config/persist.js';
 
 const router = Router();
 const sessions = new Map();
@@ -76,12 +77,26 @@ router.post('/chat', async (req, res, next) => {
   pruneSessions(now);
   const sessionId = body.sessionId;
   const contextTokenId = getContextTokenId(body);
-  let session = sessions.get(sessionId);
-  if (!session) {
-    session = { state: createAssistantState(contextTokenId), updatedAt: now };
-    sessions.set(sessionId, session);
+  let session;
+  if (persistenceEnabled) {
+    // Shared store: the conversation survives hopping between serverless instances.
+    let saved = null;
+    try { saved = await sessionGet(sessionId); } catch (err) { console.error('AI session load failed:', err.message); }
+    session = { state: saved || createAssistantState(contextTokenId), updatedAt: now };
+  } else {
+    session = sessions.get(sessionId);
+    if (!session) {
+      session = { state: createAssistantState(contextTokenId), updatedAt: now };
+      sessions.set(sessionId, session);
+    }
+    session.updatedAt = now;
   }
-  session.updatedAt = now;
+
+  const save = async () => {
+    if (!persistenceEnabled) return;
+    try { await sessionSet(sessionId, session.state, Math.ceil(AI_SESSION_TTL_MS / 1000)); }
+    catch (err) { console.error('AI session save failed:', err.message); }
+  };
 
   try {
     const result = await handleAssistantRequest({
@@ -91,9 +106,11 @@ router.post('/chat', async (req, res, next) => {
       action,
       contextTokenId,
     });
+    await save(); // persist BEFORE replying so the next message sees it
     return res.json(result);
   } catch (error) {
     console.error('AI assistant request failed:', error?.name || 'Error');
+    await save();
     return next(error);
   }
 });

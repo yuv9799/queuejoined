@@ -1,10 +1,29 @@
 import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api.js';
+import { subscribeAll } from '../services/socket.js';
 
 export default function Departments() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // department id -> { waiting: [tokens], serving: [tokens], held: n }
+  const [liveByDept, setLiveByDept] = useState({});
+
+  const loadLive = useCallback(async () => {
+    try {
+      const { areas } = await api.live();
+      const map = {};
+      for (const section of areas || []) {
+        const id = section.area?.department_id;
+        if (id == null) continue;
+        const entry = (map[id] ||= { waiting: [], serving: [], held: 0 });
+        entry.waiting.push(...(section.queue || []));
+        entry.serving.push(...(section.serving || []));
+        entry.held += (section.held || []).length;
+      }
+      setLiveByDept(map);
+    } catch { /* keep the last known numbers */ }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -27,7 +46,10 @@ export default function Departments() {
 
   useEffect(() => {
     load();
-  }, [load]);
+    loadLive();
+    // Refresh the live numbers whenever the queue changes (and on the polling tick).
+    return subscribeAll(() => loadLive());
+  }, [load, loadLive]);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -68,6 +90,37 @@ export default function Departments() {
                   <p className="text-[11px] uppercase tracking-wide text-slate-400">{d.code} · {d.areas.length} service{d.areas.length === 1 ? '' : 's'}</p>
                 </div>
               </div>
+              {(() => {
+                const live = liveByDept[d.id] || { waiting: [], serving: [], held: 0 };
+                const code = (t) => t.token_code || `#${t.token_number}`;
+                const all = [...live.serving, ...live.waiting];
+                const latest = all.reduce((best, t) => (!best || t.id > best.id ? t : best), null);
+                return (
+                  <div className="mt-3 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600">
+                    <p className="flex flex-wrap gap-x-4 gap-y-1 font-semibold">
+                      <span>⏳ Waiting: <b className="text-slate-900">{live.waiting.length}</b></span>
+                      <span>🩺 Serving: <b className="text-slate-900">{live.serving.length}</b></span>
+                      {live.held > 0 && <span>⏸ On hold: <b className="text-slate-900">{live.held}</b></span>}
+                      {latest && <span>🎟️ Latest: <b className="text-slate-900">{code(latest)}</b></span>}
+                    </p>
+                    {live.serving.length + live.waiting.length > 0 ? (
+                      <ul className="mt-1.5 flex flex-wrap gap-1" aria-label={`Live tokens for ${d.name}`}>
+                        {live.serving.slice(0, 4).map((t) => (
+                          <li key={`s${t.id}`} className="chip bg-emerald-100 text-emerald-800">{code(t)} · now</li>
+                        ))}
+                        {live.waiting.slice(0, 12).map((t) => (
+                          <li key={`w${t.id}`} className="chip bg-sky-100 text-sky-800">{code(t)}</li>
+                        ))}
+                        {live.waiting.length > 12 && (
+                          <li className="chip bg-slate-200 text-slate-500">+{live.waiting.length - 12} more</li>
+                        )}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-slate-400">No one waiting right now.</p>
+                    )}
+                  </div>
+                );
+              })()}
               {d.areas.length > 0 ? (
                 <ul className="mt-3 flex flex-wrap gap-1.5">
                   {d.areas.slice(0, 6).map((a) => (

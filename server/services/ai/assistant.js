@@ -73,6 +73,15 @@ function button(type, label, data = {}) {
   return { type, label, data };
 }
 
+// Every active department as an in-chat button, so people can pick one without
+// leaving the conversation.
+function departmentChoices() {
+  return getDepartments()
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((department) => button('SELECT_DEPARTMENT', department.name, { departmentId: department.id }));
+}
+
 function resetBooking(state) {
   const tokenId = state.tokenId;
   Object.assign(state, createAssistantState(tokenId));
@@ -171,11 +180,14 @@ function beginBooking(state, query) {
   state.intent = 'TOKEN_BOOKING';
   state.emergencyDetected = false;
   if (matches.length === 0) {
-    state.step = 'department';
+    state.step = 'department_selection';
+    const isGeneric = classifyIntent(query).intent === 'TOKEN_BOOKING' && rankDepartments(query, getDepartments()).length === 0;
     return response(
       state,
-      'I couldn’t match that request to an active department. You can browse the current departments or tell me the specialty you need.',
-      [button('OPEN_DEPARTMENTS', 'View Departments')]
+      isGeneric
+        ? 'Sure, I can book a token. Which department would you like? Tap one below, or type a specialty such as “heart” or “skin”.'
+        : 'I couldn’t match that to a department. Pick one below, or tell me the specialty you need.',
+      departmentChoices()
     );
   }
 
@@ -325,15 +337,16 @@ function routeIntent(state, message, contextTokenId) {
         button('BOOK_TOKEN', `Book ${department.name}`),
       ]);
     }
-    return response(state, 'Which department or specialty are you looking for?', [button('OPEN_DEPARTMENTS', 'View Departments')]);
+    state.step = 'department_selection';
+    return response(state, 'Which department or specialty are you looking for? Tap one below or type it.', departmentChoices());
   }
   if (classified.intent === 'DEPARTMENT_SEARCH') {
     const departments = getDepartments();
     return response(state, departments.length
-      ? `These are the active departments: ${departments.map((department) => department.name).join(', ')}.`
+      ? 'Here are the active departments. Tap one to book a token for it.'
       : 'There are no active departments available right now.', [
-      button('OPEN_DEPARTMENTS', 'View Departments'),
-      button('BOOK_TOKEN', 'Book a Token'),
+      ...departmentChoices(),
+      button('OPEN_DEPARTMENTS', 'Open Departments Page'),
     ]);
   }
   if (classified.intent === 'TOKEN_TRACKING') {
@@ -390,9 +403,7 @@ function handleAction(state, action, app, contextTokenId) {
       ]);
     case 'SELECT_DEPARTMENT': {
       const department = liveDepartment(data.departmentId);
-      if (!department) return response(state, 'That department is no longer available. Please choose from the current list.', [
-        button('OPEN_DEPARTMENTS', 'View Departments'),
-      ]);
+      if (!department) return response(state, 'That department is no longer available. Please choose from the current list.', departmentChoices());
       resetBooking(state);
       state.intent = 'TOKEN_BOOKING';
       state.departmentId = department.id;
@@ -592,9 +603,13 @@ export async function handleAssistantRequest({ app, state, message = '', action 
     return response(state, 'What is your Indian mobile number? It will be used only for this token and its notification.');
   }
   if (state.step === 'phone') {
-    const phoneInput = text.match(/(?:\+?91[\s().-]*)?0?[6-9](?:[\s().-]*\d){9}/)?.[0] || text;
+    // Validate the WHOLE input first; only then look for a number inside a longer
+    // sentence (anchored, so digits of "+91 1212121212" are never re-read as a number).
+    const phoneInput = normalizeIndianPhone(text)
+      ? text
+      : text.match(/(?<![\d+])(?:\+?91[\s().-]*|0)?[6-9](?:[\s().-]*\d){9}(?!\d)/)?.[0] || text;
     const phone = normalizeIndianPhone(phoneInput);
-    if (!phone) return response(state, 'That doesn’t look like a valid Indian mobile number. Please enter a 10-digit number, or include +91.');
+    if (!phone) return response(state, 'That doesn’t look like a valid Indian mobile number. It should be 10 digits and start with 6, 7, 8 or 9 (for example 9876543210).');
     state.phone = phone;
     return beginConfirmation(state);
   }
@@ -604,7 +619,7 @@ export async function handleAssistantRequest({ app, state, message = '', action 
   }
   if (state.step === 'department_selection') {
     const matches = matchDepartments(text, getDepartments());
-    if (!matches.length) return response(state, 'Please select one of the active department options shown above.');
+    if (!matches.length) return response(state, 'I couldn’t match that. Please tap one of the departments below, or type the specialty again.', departmentChoices());
     state.departmentId = matches[0].id;
     state.departmentName = matches[0].name;
     const choices = collectBookingChoices(state);

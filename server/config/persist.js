@@ -107,6 +107,17 @@ export async function releaseLock(owner) {
   } catch { /* lock expires on its own after 8s */ }
 }
 
+// Small per-conversation state for the AI assistant. On serverless the next chat
+// message can hit a different instance, so the state lives in shared Redis.
+export async function sessionGet(id) {
+  const raw = await cmd('GET', `kims:ai:${id}`);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+export async function sessionSet(id, state, ttlSeconds) {
+  await cmd('SET', `kims:ai:${id}`, JSON.stringify(state), 'EX', String(ttlSeconds));
+}
+
 export function localHasData() {
   return Boolean(db.prepare('SELECT id FROM departments LIMIT 1').get());
 }

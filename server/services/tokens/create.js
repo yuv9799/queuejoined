@@ -6,7 +6,7 @@ import * as Queue from '../../models/Queue.js';
 import * as Doctor from '../../models/Doctor.js';
 import * as Audit from '../../models/Audit.js';
 import * as Notify from '../../models/Notify.js';
-import { sendTokenSMS } from '../sms/index.js';
+import { sendTokenSMS, normalizeIndianPhone } from '../sms/index.js';
 import { sendWhatsAppNotification } from '../whatsapp/twilio.js';
 
 export class TokenCreationError extends Error {
@@ -56,6 +56,13 @@ export async function createQueueToken({
   } = body;
 
   if (!departmentId) throw new TokenCreationError('departmentId is required');
+
+  // Reject made-up numbers like +91 1212121212 (Indian mobiles start with 6-9).
+  const hasPhone = phone !== undefined && phone !== null && String(phone).trim() !== '';
+  const validPhone = hasPhone ? normalizeIndianPhone(phone) : null;
+  if (hasPhone && !validPhone) {
+    throw new TokenCreationError('Please enter a valid 10-digit Indian mobile number (it must start with 6, 7, 8 or 9).');
+  }
   const department = Department.findById(departmentId);
   if (!department || (source === 'ai_assistant' && !department.enabled)) {
     throw new TokenCreationError('Department not found');
@@ -79,7 +86,7 @@ export async function createQueueToken({
 
   let patientId = body.patientId || null;
   if (!patientId && (patientName || phone)) {
-    const patient = Patient.findOrCreate({ name: patientName || 'Walk-in', phone });
+    const patient = Patient.findOrCreate({ name: patientName || 'Walk-in', phone: validPhone || phone });
     patientId = patient.id;
   }
 

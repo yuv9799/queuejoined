@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api.js';
 import { useToast } from '../context/ToastContext.jsx';
+import { normalizeIndianPhone } from '../utils/phone.js';
 
 function ord(n) {
   if (n % 10 === 1 && n % 100 !== 11) return `${n}st`;
@@ -85,6 +86,9 @@ export default function TokenKiosk() {
   async function submit(e) {
     e.preventDefault();
     if (!deptId) return toast.error('Please select a department');
+    if (phone.trim() && !normalizeIndianPhone(phone)) {
+      return toast.error('Please enter a valid 10-digit mobile number (starts with 6, 7, 8 or 9).');
+    }
     setSubmitting(true);
     try {
       const d = await api.issueToken(
@@ -92,7 +96,7 @@ export default function TokenKiosk() {
         areaId ? Number(areaId) : undefined,
         patientName.trim() || undefined,
         preferredDoctorId ? Number(preferredDoctorId) : undefined,
-        phone.trim() || undefined,
+        (normalizeIndianPhone(phone) || phone.trim()) || undefined,
         whatsappOptIn
       );
       setIssued(d);
@@ -294,15 +298,21 @@ export default function TokenKiosk() {
             placeholder="e.g. 9876543210"
             type="tel"
             value={phone}
+            aria-invalid={phone.trim() && !normalizeIndianPhone(phone) ? 'true' : undefined}
             onChange={(e) => {
               setPhone(e.target.value);
               setWhatsappOptIn(false);
             }}
           />
+          {phone.trim() && !normalizeIndianPhone(phone) && (
+            <p className="mt-1 text-xs font-semibold text-rose-600">
+              Enter a valid 10-digit mobile number starting with 6, 7, 8 or 9.
+            </p>
+          )}
         </div>
       </div>
 
-      {phone.trim() && (
+      {normalizeIndianPhone(phone) && (
         <label className="flex items-start gap-2 text-sm text-slate-600">
           <input
             type="checkbox"
