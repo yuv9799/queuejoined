@@ -294,3 +294,19 @@ img, svg {
   .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
   .emergency-beat { animation: none !important; }
 }
+
+/* ===== Mobile app shell (<768px only; desktop never renders .m-app) ===== */
+@media (max-width: 767px) {
+  .m-app { overflow-x: hidden; }
+  .m-app h1 { font-size: 1.25rem; line-height: 1.75rem; }
+  .m-app .card { padding: 0.875rem; border-radius: 1rem; }
+  .m-app .btn, .m-app .btn-primary, .m-app .btn-secondary { min-height: 44px; }
+  .m-app .ai-fab {
+    bottom: calc(68px + env(safe-area-inset-bottom)) !important;
+    right: 12px !important;
+    min-height: 0 !important; height: 44px; width: 44px;
+    padding: 0 !important; justify-content: center;
+  }
+  .m-app .ai-fab > span:not(:first-child), .m-app .ai-fab .ai-fab-label { display: none; }
+  .m-app img, .m-app table { max-width: 100%; }
+}

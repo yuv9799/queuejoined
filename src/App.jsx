@@ -1,3 +1,5 @@
+import { useIsMobile } from './hooks/useIsMobile.js';
+import MobileShell from './components/mobile/MobileShell.jsx';
 import { useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import StaffLayout from './components/StaffLayout.jsx';
@@ -42,6 +44,7 @@ function RequireAdmin({ children }) {
 
 export default function App() {
   const [reviewsOpen, setReviewsOpen] = useState(false);
+  const isMobile = useIsMobile();
   const location = useLocation();
   const pathname = location?.pathname || '';
 
@@ -61,6 +64,9 @@ export default function App() {
             <Route path="/admin" element={<RequireStaff><StaffLayout><RequireAdmin><Admin /></RequireAdmin></StaffLayout></RequireStaff>} />
             <Route path="*" element={<div className="p-10 text-center text-slate-500">Not found.</div>} />
           </Routes>
+        ) : isMobile ? (
+          // Phones get a dedicated app-like shell; the desktop tree below is unchanged.
+          <MobileShell reviewsOpen={reviewsOpen} setReviewsOpen={setReviewsOpen} />
         ) : (
           <div className="flex min-h-full flex-col">
             <Navbar reviewsOpen={reviewsOpen} onOpenReviews={() => setReviewsOpen(true)} />
@@ -72,6 +78,7 @@ export default function App() {
                 <Route path="/departments" element={<Departments />} />
                 <Route path="/help" element={<Help />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/kiosk" element={<Navigate to="/#token" replace />} />
                 <Route path="*" element={<div className="p-10 text-center text-slate-500">Not found.</div>} />
               </Routes>
             </main>

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api.js';
 import { subscribeAll } from '../services/socket.js';
+import { useIsMobile } from '../hooks/useIsMobile.js';
 
 function TokenPill({ token, big }) {
   return (
@@ -16,6 +17,7 @@ function TokenPill({ token, big }) {
 }
 
 export default function LiveBoard() {
+  const isMobile = useIsMobile();
   const [data, setData] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [filterDept, setFilterDept] = useState('');
@@ -53,7 +55,7 @@ export default function LiveBoard() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className={`${isMobile ? 'mb-3' : 'mb-6'} flex flex-wrap items-center justify-between gap-3`}>
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-extrabold text-slate-900">Live Queue Board</h1>
           <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">
@@ -63,7 +65,7 @@ export default function LiveBoard() {
         <label className="sr-only" htmlFor="live-dept-filter">Filter by department</label>
         <select
           id="live-dept-filter"
-          className="input w-56"
+          className={`input ${isMobile ? 'w-full' : 'w-56'}`}
           value={filterDept}
           onChange={(e) => setFilterDept(e.target.value)}
           aria-label="Filter by department"
@@ -93,6 +95,53 @@ export default function LiveBoard() {
       ) : filtered.length === 0 ? (
         <p className="text-slate-500">No active {filterDept ? 'queues for this department' : 'queues'} right now.</p>
       ) : (
+        isMobile ? (
+          <div className="space-y-2">
+            {filtered.map(({ area, serving, queue, held }) => (
+              <div key={area.id} className="card !p-0 overflow-hidden">
+                <div
+                  className="flex items-center justify-between px-3 py-2 text-white"
+                  style={{ backgroundColor: area.department_color || '#2563eb' }}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] font-medium opacity-80">{area.department_name}</p>
+                    <p className="truncate text-sm font-bold">{area.name}</p>
+                  </div>
+                  <span className="ml-2 shrink-0 rounded-md bg-black/20 px-2 py-0.5 text-[11px] font-semibold">
+                    {queue.length} waiting
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 px-3 py-2.5">
+                  <div className="shrink-0 text-center">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Serving</p>
+                    {serving.length > 0 ? (
+                      <>
+                        <div className="mx-auto mt-0.5 flex h-12 w-12 items-center justify-center rounded-xl text-lg font-black text-white" style={{ backgroundColor: serving[0].department_color || '#2563eb' }}>
+                          {serving[0].token_number}
+                        </div>
+                        <p className="mt-0.5 text-[10px] font-semibold text-slate-600">Counter {serving[0].counter_name || '—'}</p>
+                      </>
+                    ) : (
+                      <div className="mx-auto mt-0.5 flex h-12 w-12 items-center justify-center rounded-xl border-2 border-dashed border-slate-200 text-slate-400">—</div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Next up</p>
+                    <div className="mt-0.5 flex flex-wrap gap-1.5">
+                      {queue.slice(0, 5).map((t) => (
+                        <span key={t.id} className="rounded-lg px-2 py-1 text-xs font-bold text-white" style={{ backgroundColor: t.department_color || '#2563eb' }}>{t.token_number}</span>
+                      ))}
+                      {queue.length === 0 && <span className="text-xs text-slate-400">Empty</span>}
+                    </div>
+                    {held.length > 0 && (
+                      <p className="mt-1 text-[11px] font-semibold text-amber-600">On hold: {held.map((h) => h.token_number).join(', ')}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map(({ area, serving, queue, held }) => (
             <div key={area.id} className="card overflow-hidden">
@@ -146,6 +195,7 @@ export default function LiveBoard() {
             </div>
           ))}
         </div>
+        )
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../services/api.js';
 import { getSocket } from '../services/socket.js';
+import { useIsMobile } from '../hooks/useIsMobile.js';
 
 const STATUS_META = {
   queued: {
@@ -86,6 +87,8 @@ function formatTime(isoStr) {
 }
 
 export default function TokenStatus() {
+  const isMobile = useIsMobile();
+  const kioskPath = isMobile ? '/kiosk' : '/#token';
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const [token, setToken] = useState(null);
@@ -227,13 +230,13 @@ export default function TokenStatus() {
 
   return (
     <div className="mx-auto max-w-xl">
-      <div className="mb-6 text-center">
-        <h1 className="text-3xl font-black text-slate-900">Patient Live Token Tracker</h1>
-        <p className="mt-1 text-sm text-slate-500">Live queue position, doctor details and estimated consultation wait</p>
+      <div className={isMobile ? 'mb-2 text-left' : 'mb-6 text-center'}>
+        <h1 className="text-3xl font-black text-slate-900">{isMobile ? 'My Token' : 'Patient Live Token Tracker'}</h1>
+        {!isMobile && <p className="mt-1 text-sm text-slate-500">Live queue position, doctor details and estimated consultation wait</p>}
       </div>
 
       {/* Search Bar */}
-      <form onSubmit={search} className="mb-6 flex gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+      <form onSubmit={search} className={`${isMobile ? 'mb-3' : 'mb-6'} flex gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm`}>
         <input
           className="input font-medium border-0 bg-transparent shadow-none focus:ring-0"
           placeholder="Enter token number (e.g. 24 or CARD-024)"
@@ -279,7 +282,7 @@ export default function TokenStatus() {
           <p className="mt-3 text-base font-bold text-slate-800">No Active Token Selected</p>
           <p className="mt-1 text-sm text-slate-500">Generate a token from the Kiosk or enter your token number above to track your position in real-time.</p>
           <div className="mt-5">
-            <button className="btn-primary font-bold" onClick={() => navigate('/#token')}>
+            <button className="btn-primary font-bold" onClick={() => navigate(kioskPath)}>
               🎟️ Get a Token Now
             </button>
           </div>
@@ -317,17 +320,17 @@ export default function TokenStatus() {
 
           {/* Prominent Token Display */}
           <div
-            className="pulse-ring mx-auto my-4 flex flex-col items-center justify-center rounded-3xl p-6 text-white shadow-xl transition-all"
+            className={`pulse-ring mx-auto ${isMobile ? 'my-2 p-3' : 'my-4 p-6'} flex flex-col items-center justify-center rounded-3xl text-white shadow-xl transition-all`}
             style={{ backgroundColor: token.department_color || '#2563eb' }}
             aria-label={`Token ${token.token_code || token.token_number}`}
           >
             <span className="text-xs uppercase tracking-widest opacity-80">YOUR TOKEN</span>
-            <span className="text-6xl font-black tracking-tight">{token.token_code || token.token_number}</span>
+            <span className={`${isMobile ? 'text-4xl' : 'text-6xl'} font-black tracking-tight`}>{token.token_code || token.token_number}</span>
             <span className="mt-1 text-sm font-bold opacity-95">{token.department_name}</span>
           </div>
 
           {/* Doctor Details Card */}
-          <div className="my-4 rounded-2xl border border-blue-200 bg-gradient-to-r from-slate-50 to-blue-50 p-4 text-left shadow-sm">
+          <div className={`${isMobile ? 'my-2 p-3' : 'my-4 p-4'} rounded-2xl border border-blue-200 bg-gradient-to-r from-slate-50 to-blue-50 text-left shadow-sm`}>
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-blue-600">Assigned Doctor</p>
@@ -353,7 +356,7 @@ export default function TokenStatus() {
 
           {/* Dynamic Queue Metrics */}
           {!isTerminated && (
-            <div className="grid grid-cols-2 gap-3 text-center">
+            <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-2'} gap-3 text-center`}>
               <div className="metric-card rounded-2xl">
                 <p className="text-2xl font-black text-slate-800">
                   {isCalled
@@ -369,7 +372,7 @@ export default function TokenStatus() {
                 </p>
               </div>
 
-              <div className="metric-card metric-card--primary rounded-2xl">
+              {!isMobile && (<div className="metric-card metric-card--primary rounded-2xl">
                 <p className="text-2xl font-black text-blue-700">
                   {isCalled
                     ? 'Now'
@@ -382,7 +385,7 @@ export default function TokenStatus() {
                 <p className="text-xs font-semibold text-blue-600">
                   {estimatedServiceTime ? `Est. Service: ${estimatedServiceTime}` : 'Estimated Wait'}
                 </p>
-              </div>
+              </div>)}
             </div>
           )}
 
@@ -397,7 +400,7 @@ export default function TokenStatus() {
           )}
 
           {/* Footer details */}
-          <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] text-slate-400">
+          <div className={`${isMobile ? 'mt-3' : 'mt-5'} flex items-center justify-between border-t border-slate-100 pt-3 text-[11px] text-slate-400`}>
             <span>Created: {formatTime(token.created_at)}</span>
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -406,9 +409,9 @@ export default function TokenStatus() {
           </div>
 
           {/* Action buttons */}
-          <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <div className={`${isMobile ? 'mt-3' : 'mt-5'} flex flex-wrap justify-center gap-2`}>
             {isTerminated ? (
-              <button className="btn-primary font-bold" onClick={() => navigate('/#token')}>
+              <button className="btn-primary font-bold" onClick={() => navigate(kioskPath)}>
                 🎟️ Get New Token
               </button>
             ) : (
