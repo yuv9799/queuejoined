@@ -21,7 +21,7 @@ export default function MobileShell({ reviewsOpen, setReviewsOpen }) {
   return (
     <div className="m-app flex min-h-full flex-col">
       <MobileHeader active={active} />
-      <main className="m-main flex-1 px-3 pb-24 pt-3">
+      <main className="m-main flex flex-1 flex-col px-3 pb-[calc(76px+env(safe-area-inset-bottom))] pt-3">
         <Routes>
           <Route path="/" element={<MobileHome active={active} onOpenReviews={() => setReviewsOpen(true)} />} />
           <Route path="/kiosk" element={<MobileKiosk />} />

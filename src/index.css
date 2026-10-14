@@ -310,3 +310,13 @@ img, svg {
   .m-app .ai-fab > span:not(:first-child), .m-app .ai-fab .ai-fab-label { display: none; }
   .m-app img, .m-app table { max-width: 100%; }
 }
+
+/* Short phones (e.g. 320x568, 375x667): keep the home screen on one page. */
+@media (max-width: 767px) and (max-height: 700px) {
+  .m-home { gap: 0.5rem; }
+  .m-home .tile-hint { display: none; }
+  .m-app .m-main { padding-top: 0.5rem; }
+}
+@media (max-width: 767px) and (max-height: 600px) {
+  .m-home .home-stats { display: none; }
+}
