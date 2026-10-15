@@ -9,3 +9,5 @@ export const BuildingIcon = (p) => (<svg {...base} {...p}><path d="M4 20V6l8-3 8
 export const StarIcon = (p) => (<svg {...base} {...p}><path d="m12 3.6 2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.9 6.8 19.6l1-5.8L3.6 9.7l5.8-.8Z" /></svg>);
 export const SosIcon = (p) => (<svg {...base} {...p}><path d="M12 3 2.8 19a1.2 1.2 0 0 0 1 1.8h16.4a1.2 1.2 0 0 0 1-1.8Z" /><path d="M12 9.5v4.5" /><circle cx="12" cy="17.2" r=".7" fill="currentColor" /></svg>);
 export const ChevronIcon = (p) => (<svg {...base} width={16} height={16} {...p}><path d="m9 6 6 6-6 6" /></svg>);
+export const ArrowIcon = (p) => (<svg {...base} width={18} height={18} {...p}><path d="M5 12h14M13 6l6 6-6 6" /></svg>);
+export const BackIcon = (p) => (<svg {...base} width={20} height={20} {...p}><path d="m15 5-7 7 7 7" /></svg>);
