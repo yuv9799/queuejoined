@@ -57,8 +57,11 @@ function locationErrorText(code) {
   }
 }
 
-function sosLocationError() {
-  return 'Unable to determine your location. For immediate emergency assistance, call 108 or contact the KIMS Emergency Desk.';
+function sosLocationError(code) {
+  const tail = ' For immediate emergency assistance, call 108 or contact the KIMS Emergency Desk.';
+  if (code === 'denied') return 'Location permission is blocked for this site. Tap the lock/settings icon next to the web address, allow Location, then press Try Again.' + tail;
+  if (code === 'services-off' || code === 'timeout' || code === 'unavailable') return 'Could not get a location fix. Turn on your phone\'s Location (GPS), step near a window or outdoors, then press Try Again.' + tail;
+  return 'Unable to determine your location.' + tail;
 }
 
 function sosKey() {
@@ -226,7 +229,7 @@ export default function EmergencyModal({ open, onClose }) {
     try {
       user = await getCurrentUserLocation();
     } catch (e) {
-      setSos({ phase: 'location-error', code: e.code || 'unavailable', message: sosLocationError(), result: null });
+      setSos({ phase: 'location-error', code: e.code || 'unavailable', message: sosLocationError(e.code), result: null });
       return;
     }
     if (!isValidCoord(user.latitude, user.longitude)) {
