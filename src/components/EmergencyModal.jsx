@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Modal from './Modal.jsx';
 import api from '../services/api.js';
 import { getSocket } from '../services/socket.js';
@@ -18,9 +19,9 @@ const ACTIONS = [
 
 // Confirmation dialog rendered inside the modal.
 function Confirm({ title, body, confirmLabel, cancelLabel = 'Cancel', onConfirm, onCancel }) {
-  return (
-    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-[20px] bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" role="alertdialog" aria-modal="true">
+      <div className="max-h-full w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
         <p className="text-base font-bold" style={{ color: '#102A43' }}>{title}</p>
         <p className="mt-2 text-sm" style={{ color: '#6B8198' }}>{body}</p>
         <div className="mt-4 flex justify-end gap-2">
@@ -28,7 +29,8 @@ function Confirm({ title, body, confirmLabel, cancelLabel = 'Cancel', onConfirm,
           <button type="button" className="btn-emergency !py-2" onClick={onConfirm}>{confirmLabel}</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -426,14 +428,14 @@ export default function EmergencyModal({ open, onClose }) {
         For non-emergencies, use the token kiosk — blue/green queues for routine services.
       </p>
 
-      {permission && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-[20px] bg-black/40 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+      {permission && createPortal(
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4" role="alertdialog" aria-modal="true">
+          <div className="max-h-full w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
             <p className="flex items-center gap-2 text-base font-bold" style={{ color: '#102A43' }}>
               <span aria-hidden="true">📍</span> Location Required
             </p>
             <p className="mt-2 text-sm" style={{ color: '#6B8198' }}>
-              We need your current location to provide directions from your location to KIMS Hospital. Your browser or device will ask for permission with its native prompt.
+              {permission.for === 'sos' ? 'We need your current location to send it to the hospital staff with your SOS.' : permission.for === 'locate' ? 'We need your current location to find the nearest help point.' : 'We need your current location to provide directions from your location to KIMS Hospital.'} Your browser or device will ask for permission with its native prompt.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button type="button" className="btn-secondary !py-2" onClick={() => setPermission(null)}>Cancel</button>
@@ -441,7 +443,7 @@ export default function EmergencyModal({ open, onClose }) {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {conf && (
         <Confirm

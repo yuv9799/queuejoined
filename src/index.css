@@ -242,7 +242,9 @@ img, svg {
   width: 100%;
   max-width: 620px;
   max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 32px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   border-radius: 20px;
   background: #ffffff;
   padding: 1.5rem;
