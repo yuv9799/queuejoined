@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../services/api.js';
 import { getSocket } from '../services/socket.js';
 import { useIsMobile } from '../hooks/useIsMobile.js';
+import { mapsToHospitalUrl } from '../config/emergency.js';
 
 const STATUS_META = {
   queued: {
@@ -230,7 +231,7 @@ export default function TokenStatus() {
 
   return (
     <div className="mx-auto max-w-xl">
-      <div className={isMobile ? 'mb-2 text-left' : 'mb-6 text-center'}>
+      <div className={isMobile ? 'hidden' : 'mb-6 text-center'}>
         <h1 className="text-3xl font-black text-slate-900">{isMobile ? 'My Token' : 'Patient Live Token Tracker'}</h1>
         {!isMobile && <p className="mt-1 text-sm text-slate-500">Live queue position, doctor details and estimated consultation wait</p>}
       </div>
@@ -316,7 +317,40 @@ export default function TokenStatus() {
             <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold ${meta.color}`}>
               {meta.label}
             </span>
+            {!isTerminated && (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 shadow-sm hover:bg-slate-50"
+                onClick={() => currentId.current && load(currentId.current)}
+                aria-label="Refresh queue status"
+              >
+                🔄 Refresh
+              </button>
+            )}
           </div>
+          {!isTerminated && lastUpdated && (
+            <p className="mt-1 text-[11px] text-slate-400">Updated {lastUpdated}</p>
+          )}
+
+          {/* Next step — where to go and how to get there */}
+          {(isWaiting || isCalled || token.status === 'held') && (
+            <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-left">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-amber-700">Next step</p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-800">
+                {isCalled
+                  ? `Go to ${token.doctor_room || 'the consultation room'} now.`
+                  : token.status === 'held'
+                  ? 'Stay near the reception — staff will call you back shortly.'
+                  : `Go to ${token.area_name || token.department_name}${token.area_floor ? ` (${token.area_floor})` : ''} and wait near the consultation room${token.doctor_room ? ` (${token.doctor_room})` : ''}. ${peopleAhead === 0 ? 'You are next.' : `${peopleAhead} ahead of you.`}`}
+              </p>
+              <a
+                href={mapsToHospitalUrl()} target="_blank" rel="noopener noreferrer"
+                className="mt-1.5 inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:underline"
+              >
+                📍 Directions to KIMS Hospital
+              </a>
+            </div>
+          )}
 
           {/* Prominent Token Display */}
           <div
@@ -349,7 +383,7 @@ export default function TokenStatus() {
                 <span className="inline-block rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-black text-white shadow-sm">
                   {token.doctor_room || 'Room 101'}
                 </span>
-                <p className="mt-1 text-[11px] text-slate-400">{token.area_name}</p>
+                <p className="mt-1 max-w-[9rem] text-[11px] leading-tight text-slate-400">{token.area_name}{token.area_floor ? ` · ${token.area_floor}` : ''}</p>
               </div>
             </div>
           </div>

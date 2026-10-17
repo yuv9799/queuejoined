@@ -1,8 +1,8 @@
 import { useIsMobile } from './hooks/useIsMobile.js';
 import MobileShell from './components/mobile/MobileShell.jsx';
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import StaffLayout from './components/StaffLayout.jsx';
+const StaffLayout = lazy(() => import('./components/StaffLayout.jsx'));
 import Navbar from './components/Navbar.jsx';
 import ReviewDrawer from './components/ReviewDrawer.jsx';
 import Footer from './components/Footer.jsx';
@@ -12,8 +12,10 @@ import { useAuth } from './context/AuthContext.jsx';
 import Home from './pages/Home.jsx';
 import TokenStatus from './pages/TokenStatus.jsx';
 import LiveBoard from './pages/LiveBoard.jsx';
-import StaffConsole from './pages/StaffConsole.jsx';
-import Admin from './pages/Admin.jsx';
+// Staff screens (and the charting library) load only when a staff member opens them,
+// so patients on mobile data download far less JavaScript.
+const StaffConsole = lazy(() => import('./pages/StaffConsole.jsx'));
+const Admin = lazy(() => import('./pages/Admin.jsx'));
 import Login from './pages/Login.jsx';
 import Departments from './pages/Departments.jsx';
 import Help from './pages/Help.jsx';
@@ -57,6 +59,7 @@ export default function App() {
     <ToastProvider>
       <EmergencyProvider>
         {isStaffPath ? (
+          <Suspense fallback={<div className="p-10 text-center text-slate-500">Loading…</div>}>
           <Routes>
             <Route path="/staff" element={<RequireStaff><StaffLayout><StaffConsole /></StaffLayout></RequireStaff>} />
             <Route path="/staff/*" element={<RequireStaff><StaffLayout><StaffConsole /></StaffLayout></RequireStaff>} />
@@ -64,6 +67,7 @@ export default function App() {
             <Route path="/admin" element={<RequireStaff><StaffLayout><RequireAdmin><Admin /></RequireAdmin></StaffLayout></RequireStaff>} />
             <Route path="*" element={<div className="p-10 text-center text-slate-500">Not found.</div>} />
           </Routes>
+          </Suspense>
         ) : isMobile ? (
           // Phones get a dedicated app-like shell; the desktop tree below is unchanged.
           <MobileShell reviewsOpen={reviewsOpen} setReviewsOpen={setReviewsOpen} />

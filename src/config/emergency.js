@@ -38,3 +38,10 @@ export function mapsDirectionsUrl({ originLat, originLng, destination, travelMod
 export function mapsPinUrl(lat, lng) {
   return `https://www.google.com/maps?q=${encodeURIComponent(`${lat},${lng}`)}`;
 }
+
+// Directions to the KIMS hospital with NO fixed origin: Google Maps then uses
+// the visitor's own current location as the start. Opens the Maps app on phones.
+export function mapsToHospitalUrl() {
+  const h = KIMS_LOCATION.hospital;
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${h.latitude},${h.longitude}`)}&travelmode=driving`;
+}

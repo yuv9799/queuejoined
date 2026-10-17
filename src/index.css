@@ -329,5 +329,16 @@ img, svg {
   .m-home { gap: 0.5rem; }
 }
 @media (max-width: 767px) and (max-height: 600px) {
+  .m-home .grid > * { min-height: 76px; }
+  .m-home { gap: 0.4rem; }
   .m-home .home-stats { display: none; }
+}
+
+@media (max-width: 767px) and (max-height: 600px) {
+  .m-app .m-main { padding-bottom: calc(84px + env(safe-area-inset-bottom)); padding-top: 0.25rem; }
+}
+@media (max-width: 340px) {
+  .m-home .grid > * > span[aria-hidden="true"]:last-child { display: none; }
+  .m-home .grid > * span.pr-9 { padding-right: 0; }
+  .m-home .text-size-label { display: none; }
 }

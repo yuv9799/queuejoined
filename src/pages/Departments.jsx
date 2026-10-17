@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api.js';
 import { subscribeAll } from '../services/socket.js';
+import { departmentBlurb } from '../config/departmentInfo.js';
+import { mapsToHospitalUrl } from '../config/emergency.js';
 
 export default function Departments() {
   const [items, setItems] = useState([]);
@@ -90,6 +92,7 @@ export default function Departments() {
                   <p className="text-[11px] uppercase tracking-wide text-slate-400">{d.code} · {d.areas.length} service{d.areas.length === 1 ? '' : 's'}</p>
                 </div>
               </div>
+              <p className="mt-2 text-xs text-slate-500">{departmentBlurb(d.code, d.name)}</p>
               {(() => {
                 const live = liveByDept[d.id] || { waiting: [], serving: [], held: 0 };
                 const code = (t) => t.token_code || `#${t.token_number}`;
@@ -124,7 +127,7 @@ export default function Departments() {
               {d.areas.length > 0 ? (
                 <ul className="mt-3 flex flex-wrap gap-1.5">
                   {d.areas.slice(0, 6).map((a) => (
-                    <li key={a.id} className="chip bg-slate-100 text-slate-600">
+                    <li key={a.id} className="chip bg-slate-100 text-slate-600" title={`${a.name}${a.floor ? " — " + a.floor : ""}`}>
                       {a.name}
                       {a.floor ? <span className="ml-0.5 text-slate-400">· {a.floor}</span> : null}
                     </li>
@@ -136,6 +139,12 @@ export default function Departments() {
               ) : (
                 <p className="mt-3 text-xs text-slate-400">No service areas assigned yet.</p>
               )}
+              <a
+                href={mapsToHospitalUrl()} target="_blank" rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-blue-700 hover:underline"
+              >
+                📍 Directions to KIMS
+              </a>
             </div>
           ))}
         </div>
