@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import MobileHeader from './MobileHeader.jsx';
 import MobileBottomNav from './MobileBottomNav.jsx';
 import MobileHome from './MobileHome.jsx';
+import MobileVisits from './MobileVisits.jsx';
 import MobileKiosk from './MobileKiosk.jsx';
 import ReviewDrawer from '../ReviewDrawer.jsx';
 import AIAssistant from '../ai/AIAssistant.jsx';
@@ -26,6 +27,7 @@ export default function MobileShell({ reviewsOpen, setReviewsOpen }) {
           <Route path="/" element={<MobileHome active={active} onOpenReviews={() => setReviewsOpen(true)} />} />
           <Route path="/kiosk" element={<MobileKiosk />} />
           <Route path="/status" element={<TokenStatus />} />
+          <Route path="/visits" element={<MobileVisits />} />
           <Route path="/live" element={<LiveBoard />} />
           <Route path="/departments" element={<Departments />} />
           <Route path="/help" element={<Help />} />

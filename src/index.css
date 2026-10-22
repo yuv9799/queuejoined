@@ -340,5 +340,4 @@ img, svg {
 @media (max-width: 340px) {
   .m-home .grid > * > span[aria-hidden="true"]:last-child { display: none; }
   .m-home .grid > * span.pr-9 { padding-right: 0; }
-  .m-home .text-size-label { display: none; }
 }

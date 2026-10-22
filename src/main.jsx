@@ -4,9 +4,6 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import './index.css';
-import { applyTextSize } from './utils/textSize.js';
-
-applyTextSize();
 
 // Vite sets BASE_URL to the configured `base` (e.g. '/queue-manage/') so the
 // router knows it lives at a sub-path on GitHub Pages. Without this, routes

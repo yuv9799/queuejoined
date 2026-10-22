@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { HomeIcon, TicketIcon, QueueIcon, HelpIcon } from './icons.jsx';
+import { HomeIcon, TicketIcon, QueueIcon, HelpIcon, CalendarIcon } from './icons.jsx';
 
 // Global navigation only. Contextual actions (Generate Token, Departments,
 // Reviews, Emergency) live on the home screen so nothing appears twice.
@@ -7,6 +7,7 @@ import { HomeIcon, TicketIcon, QueueIcon, HelpIcon } from './icons.jsx';
 const ITEMS = [
   { to: '/', label: 'Home', Icon: HomeIcon, end: true },
   { to: '/status', label: 'My Token', Icon: TicketIcon },
+  { to: '/visits', label: 'Visits', Icon: CalendarIcon },
   { to: '/live', label: 'Live Queue', Icon: QueueIcon },
   { to: '/help', label: 'Help', Icon: HelpIcon },
 ];
@@ -19,7 +20,7 @@ export default function MobileBottomNav() {
       style={{ paddingBottom: 'calc(10px + env(safe-area-inset-bottom))' }}
     >
       <ul
-        className="pointer-events-auto mx-auto grid h-16 max-w-sm grid-cols-4 items-center rounded-full px-2"
+        className="pointer-events-auto mx-auto grid h-16 max-w-sm grid-cols-5 items-center rounded-full px-2"
         style={{ backgroundColor: '#17191C', boxShadow: '0 10px 24px rgba(0,0,0,0.22)' }}
       >
         {ITEMS.map(({ to, label, Icon, end }) => (

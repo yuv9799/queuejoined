@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api.js';
 import { subscribeAll } from '../../services/socket.js';
-import { applyTextSize, getTextSize, setTextSize, TEXT_SIZES } from '../../utils/textSize.js';
 import { useEmergency } from '../../context/EmergencyContext.jsx';
 import { PlusTicketIcon, BuildingIcon, StarIcon, SosIcon, ChevronIcon, ArrowIcon } from './icons.jsx';
 
@@ -89,24 +88,6 @@ function Stat({ value, label }) {
   );
 }
 
-function TextSizeControl() {
-  const [size, setSize] = useState(getTextSize);
-  useEffect(() => { applyTextSize(size); }, [size]);
-  return (
-    <div className="flex items-center gap-1" role="group" aria-label="Text size">
-      <span className="text-size-label mr-1 text-[11px] font-semibold" style={{ color: '#6B7280' }}>Text size</span>
-      {TEXT_SIZES.map((t) => (
-        <button
-          key={t.id} type="button" aria-label={t.aria} aria-pressed={size === t.id}
-          onClick={() => { setTextSize(t.id); setSize(t.id); }}
-          className="h-7 min-w-[34px] rounded-full px-2 text-xs font-bold"
-          style={size === t.id ? { backgroundColor: '#17191C', color: '#fff' } : { backgroundColor: '#fff', color: '#17191C', boxShadow: '0 0 0 1px #E5E7EB' }}
-        >{t.label}</button>
-      ))}
-    </div>
-  );
-}
-
 export default function MobileHome({ active, onOpenReviews }) {
   const { openEmergency } = useEmergency();
   const [overview, setOverview] = useState(null);
@@ -168,12 +149,9 @@ export default function MobileHome({ active, onOpenReviews }) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-1">
-        <TextSizeControl />
-        <Link to="/login" className="flex items-center gap-1 text-xs font-semibold" style={{ color: '#6B7280' }}>
-          Staff login <ChevronIcon />
-        </Link>
-      </div>
+      <Link to="/login" className="flex items-center justify-center gap-1 text-xs font-semibold" style={{ color: '#6B7280' }}>
+        Staff login <ChevronIcon />
+      </Link>
     </div>
   );
 }

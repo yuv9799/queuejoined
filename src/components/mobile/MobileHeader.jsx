@@ -3,7 +3,7 @@ import { waitLabel } from '../../hooks/useActiveToken.js';
 import { BackIcon } from './icons.jsx';
 
 const TITLES = {
-  '/kiosk': 'Generate Token', '/status': 'My Token', '/live': 'Live Queue',
+  '/kiosk': 'Generate Token', '/status': 'My Token', '/live': 'Live Queue', '/visits': 'My Visits',
   '/departments': 'Departments', '/help': 'Help', '/login': 'Staff Login',
 };
 

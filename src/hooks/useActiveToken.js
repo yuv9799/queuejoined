@@ -9,6 +9,20 @@ import { getSocket } from '../services/socket.js';
 const ENDED = ['completed', 'cancelled', 'skipped', 'no_show', 'expired'];
 const KEY = 'kims_active_token_id';
 
+// Tokens this device has generated/tracked (ids only, newest first), so the
+// Visits calendar can show the visitor's OWN history. Never other people's.
+const HISTORY_KEY = 'kims_token_history';
+export function readHistory() {
+  try { const v = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+}
+function remember(id) {
+  try {
+    const list = readHistory().filter((x) => String(x) !== String(id));
+    list.unshift(String(id));
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, 60)));
+  } catch { /* storage unavailable */ }
+}
+
 function readId() {
   try { return localStorage.getItem(KEY); } catch { return null; }
 }
@@ -26,6 +40,7 @@ export function useActiveToken() {
   const load = useCallback(async () => {
     const id = readId();
     idRef.current = id;
+    if (id) remember(id);
     if (!id) { setState({ phase: 'none', token: null, waitMinutes: null, peopleAhead: null }); return; }
     const mine = ++reqRef.current;
     try {

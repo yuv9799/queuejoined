@@ -11,3 +11,5 @@ export const SosIcon = (p) => (<svg {...base} {...p}><path d="M12 3 2.8 19a1.2 1
 export const ChevronIcon = (p) => (<svg {...base} width={16} height={16} {...p}><path d="m9 6 6 6-6 6" /></svg>);
 export const ArrowIcon = (p) => (<svg {...base} width={18} height={18} {...p}><path d="M5 12h14M13 6l6 6-6 6" /></svg>);
 export const BackIcon = (p) => (<svg {...base} width={20} height={20} {...p}><path d="m15 5-7 7 7 7" /></svg>);
+export const CalendarIcon = (p) => (<svg {...base} {...p}><rect x="3.5" y="5" width="17" height="15" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg>);
+export const ChatIcon = (p) => (<svg {...base} width={18} height={18} {...p}><path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 16h-7l-4.5 3.5V16H5a1.5 1.5 0 0 1-1.5-1.5v-8A1.5 1.5 0 0 1 5 5Z" /></svg>);
