@@ -3,6 +3,8 @@ import api from '../services/api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { subscribeStaff } from '../services/socket.js';
+import StaffCalendar from '../components/StaffCalendar.jsx';
+import { useIsMobile } from '../hooks/useIsMobile.js';
 
 const STATUS_UI = {
   available: { c: '#16a34a', bg: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: '🟢', label: 'Available' },
@@ -54,6 +56,7 @@ export default function StaffConsole() {
   const isOps = ['officer', 'admin'].includes(role);
   const isReception = role === 'reception';
 
+  const isMobile = useIsMobile(); // the calendar is a website-version (desktop) feature
   const [tab, setTab] = useState('overview');
   const [dash, setDash] = useState(null);
   const [queues, setQueues] = useState([]);
@@ -1101,6 +1104,7 @@ export default function StaffConsole() {
     { k: 'doctors', l: `Doctors (${doctors.length})`, icon: '👨‍⚕️' },
     { k: 'live_queue', l: 'Live Queue', icon: '📋' },
     { k: 'tokens', l: `Tokens (${allTokens.length})`, icon: '🎟️' },
+    ...(isMobile ? [] : [{ k: 'calendar', l: 'Calendar', icon: '🗓️' }]),
     { k: 'patients', l: 'Patients', icon: '🧑‍🤝‍🧑' },
     { k: 'history', l: 'History / Audit', icon: '📜' },
   ];
@@ -1151,6 +1155,13 @@ export default function StaffConsole() {
         {tab === 'doctors' && renderDoctors()}
         {tab === 'live_queue' && renderLiveQueue()}
         {tab === 'tokens' && renderTokens()}
+        {tab === 'calendar' && !isMobile && (
+          <StaffCalendar
+            tokens={allTokens}
+            departments={departments}
+            onOpenToken={(t) => { setTokenSearch(t.token_code || String(t.token_number)); setTab('tokens'); }}
+          />
+        )}
         {tab === 'patients' && renderPatients()}
         {tab === 'history' && renderAudit()}
       </div>
