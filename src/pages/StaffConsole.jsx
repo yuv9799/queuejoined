@@ -1159,6 +1159,7 @@ export default function StaffConsole() {
           <StaffCalendar
             tokens={allTokens}
             departments={departments}
+            doctors={doctors}
             onOpenToken={(t) => { setTokenSearch(t.token_code || String(t.token_number)); setTab('tokens'); }}
           />
         )}

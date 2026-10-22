@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import DoctorSchedule from './DoctorSchedule.jsx';
 
 // Staff-only schedule calendar (website version). Shows every token as a block on
 // a week/day time grid, filterable by department, with a mini month, a live
@@ -91,7 +92,9 @@ function MiniMonth({ selected, onPick, counts }) {
   );
 }
 
-export default function StaffCalendar({ tokens, departments, onOpenToken }) {
+export default function StaffCalendar({ tokens, departments, doctors, onOpenToken }) {
+  const [mode, setMode] = useState('doctors'); // doctors | tokens
+  const [docId, setDocId] = useState(null);
   const [selected, setSelected] = useState(() => new Date());
   const [view, setView] = useState('week'); // week | day
   const [hidden, setHidden] = useState(() => new Set()); // hidden department ids
@@ -133,7 +136,7 @@ export default function StaffCalendar({ tokens, departments, onOpenToken }) {
     END_H = Math.max(END_H, Math.min(24, e.end.getHours() + 1));
   }
   const days = view === 'day' ? [sod(selected)] : Array.from({ length: 7 }, (_, i) => addDays(weekStart(selected), i));
-  const step = (dir) => setSelected((s) => addDays(s, (view === 'day' ? 1 : 7) * dir));
+  const step = (dir) => setSelected((s) => addDays(s, (view === 'day' || mode === 'doctors' ? 1 : 7) * dir));
   const todayKey = dayKey(now);
 
   // keyboard shortcuts: T today · D day · W week · ←/→ navigate
@@ -167,7 +170,26 @@ export default function StaffCalendar({ tokens, departments, onOpenToken }) {
   const allOn = hidden.size === 0;
 
   return (
-    <div className="grid overflow-hidden rounded-2xl border border-slate-200 bg-white lg:grid-cols-[230px_1fr_280px]" style={{ minHeight: 640 }}>
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-4 py-2.5">
+      <div className="inline-flex rounded-lg bg-slate-100 p-0.5" role="tablist" aria-label="Calendar mode">
+        {[['doctors', '👨‍⚕️ Doctor slots'], ['tokens', '🎟️ Token schedule']].map(([k, l]) => (
+          <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => setMode(k)}
+            className={`rounded-md px-3 py-1.5 text-sm font-semibold ${mode === k ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>{l}</button>
+        ))}
+      </div>
+      {mode === 'doctors' && (
+        <>
+          <h2 className="text-lg font-black text-slate-900">{selected.toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</h2>
+          <div className="ml-auto flex items-center gap-2">
+            <button type="button" className="btn-secondary !py-1.5" onClick={() => setSelected(new Date())}>Today</button>
+            <button type="button" className="btn-secondary !px-2.5 !py-1.5" aria-label="Previous day" onClick={() => step(-1)}>‹</button>
+            <button type="button" className="btn-secondary !px-2.5 !py-1.5" aria-label="Next day" onClick={() => step(1)}>›</button>
+          </div>
+        </>
+      )}
+    </div>
+    <div className="grid lg:grid-cols-[230px_minmax(0,1fr)_280px]" style={{ minHeight: 640 }}>
       {/* Left: mini month + department filters */}
       <aside className="hidden border-r border-slate-200 p-4 lg:block">
         <MiniMonth selected={selected} onPick={setSelected} counts={counts} />
@@ -198,6 +220,9 @@ export default function StaffCalendar({ tokens, departments, onOpenToken }) {
         </ul>
       </aside>
 
+            {mode === 'doctors' ? (
+        <DoctorSchedule day={selected} doctors={doctors} tokens={tokens} hiddenDepts={hidden} selectedId={docId} onSelect={setDocId} />
+      ) : (<>
       {/* Center: time grid */}
       <section className="flex min-w-0 flex-col">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
@@ -364,6 +389,8 @@ export default function StaffCalendar({ tokens, departments, onOpenToken }) {
           </ul>
         </div>
       </aside>
+      </>)}
+    </div>
     </div>
   );
 }

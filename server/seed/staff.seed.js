@@ -1,4 +1,4 @@
-import { run, get, all } from '../config/db.js';
+import { run, get, all, backfillDoctorShifts } from '../config/db.js';
 import { DOCTORS_DATA } from './doctors.data.js';
 
 const PATIENTS = [
@@ -44,6 +44,8 @@ export default function seedStaff() {
       d.capacity || 20
     );
   }
+
+  backfillDoctorShifts(); // give every seeded doctor a duty shift
 
   // Insert realistic patient records
   for (const [name, phone, age, gender] of PATIENTS) {

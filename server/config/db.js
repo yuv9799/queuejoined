@@ -225,6 +225,14 @@ function ensureColumn(table, column, ddl) {
   }
 }
 
+// Morning (09-13), afternoon (13-17) or full day (09-17), spread by doctor id.
+export function backfillDoctorShifts() {
+  db.exec(`UPDATE doctors SET
+    shift_start = CASE id % 3 WHEN 0 THEN '13:00' ELSE '09:00' END,
+    shift_end   = CASE id % 3 WHEN 1 THEN '13:00' ELSE '17:00' END
+    WHERE shift_start IS NULL OR shift_end IS NULL`);
+}
+
 export function migrate() {
   db.exec(SCHEMA);
   // Idempotent migration for databases created before these columns existed.
@@ -241,6 +249,12 @@ export function migrate() {
   ensureColumn('doctors', 'qualification', 'qualification TEXT');
   ensureColumn('doctors', 'experience_years', 'experience_years INTEGER DEFAULT 5');
   ensureColumn('doctors', 'avg_consultation_minutes', 'avg_consultation_minutes INTEGER DEFAULT 10');
+
+  // Doctor duty shift (HH:MM, 24h). Slots are shift_start..shift_end in steps of
+  // avg_consultation_minutes. Doctors without one get a deterministic default.
+  ensureColumn('doctors', 'shift_start', 'shift_start TEXT');
+  ensureColumn('doctors', 'shift_end', 'shift_end TEXT');
+  backfillDoctorShifts();
 
   ensureColumn('tokens', 'patient_id', 'patient_id INTEGER REFERENCES patients(id) ON DELETE SET NULL');
   ensureColumn('tokens', 'doctor_id', 'doctor_id INTEGER REFERENCES doctors(id) ON DELETE SET NULL');

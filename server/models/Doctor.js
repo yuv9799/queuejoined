@@ -12,6 +12,8 @@ export const STATUS = {
 // Doctors that should not receive new automatic assignments without an explicit override.
 export const UNAVAILABLE_FOR_NEW = [STATUS.OFFLINE, STATUS.BREAK];
 
+const validTime = (v) => (typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v) ? v : undefined);
+
 export function list({ departmentId, specialization, status, search, active, limit = 500 } = {}) {
   const where = [];
   const params = [];
@@ -53,7 +55,7 @@ export function list({ departmentId, specialization, status, search, active, lim
     limit
   );
 
-  return rows.map((r) => withWorkload({ ...r, active: !!r.active }));
+  return rows.map((r) => withWorkload({ ...r, active: !!r.active, shift_start: r.shift_start || '09:00', shift_end: r.shift_end || '17:00' }));
 }
 
 export function findById(id) {
@@ -68,7 +70,7 @@ export function findById(id) {
     id
   );
   if (!row) return null;
-  return withWorkload({ ...row, active: !!row.active });
+  return withWorkload({ ...row, active: !!row.active, shift_start: row.shift_start || '09:00', shift_end: row.shift_end || '17:00' });
 }
 
 // Workload & queue status for a doctor.
@@ -163,12 +165,15 @@ export function create({
   status = STATUS.AVAILABLE,
   room = null,
   capacity = 0,
+  shift_start = '09:00',
+  shift_end = '17:00',
 }) {
   run(
     `INSERT INTO doctors (
        name, department_id, specialization, qualification,
-       experience_years, avg_consultation_minutes, status, room, capacity, active
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+       experience_years, avg_consultation_minutes, status, room, capacity, active,
+       shift_start, shift_end
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
     name,
     departmentId || null,
     specialization,
@@ -177,7 +182,9 @@ export function create({
     avg_consultation_minutes || 10,
     status,
     room,
-    capacity || 0
+    capacity || 0,
+    validTime(shift_start) || '09:00',
+    validTime(shift_end) || '17:00'
   );
   return findById(lastInsertId());
 }
@@ -195,6 +202,8 @@ export function update(
     room,
     capacity,
     active,
+    shift_start,
+    shift_end,
   }
 ) {
   run(
@@ -208,7 +217,9 @@ export function update(
        status = COALESCE(?, status),
        room = COALESCE(?, room),
        capacity = COALESCE(?, capacity),
-       active = COALESCE(?, active)
+       active = COALESCE(?, active),
+       shift_start = COALESCE(?, shift_start),
+       shift_end = COALESCE(?, shift_end)
      WHERE id = ?`,
     name,
     departmentId === undefined ? undefined : departmentId,
@@ -220,6 +231,8 @@ export function update(
     room,
     capacity,
     active === undefined ? undefined : active ? 1 : 0,
+    validTime(shift_start),
+    validTime(shift_end),
     id
   );
   return findById(id);
