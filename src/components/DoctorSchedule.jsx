@@ -13,6 +13,8 @@ const ENDED = ['completed', 'cancelled', 'skipped', 'no_show', 'expired'];
 const WAITING = ['queued', 'held'];
 const UNAVAILABLE = ['offline', 'break'];
 const STATUS_TXT = { available: 'Available', busy: 'Busy', in_consultation: 'In consultation', break: 'On break', offline: 'Offline', emergency: 'Emergency' };
+const STATUS_BG = { available: '#F0FDF4', busy: '#FFFBEB', in_consultation: '#ECFEFF', break: '#FEF9C3', offline: '#F1F5F9', emergency: '#FEF2F2' };
+const STATUS_ORDER = ['available', 'busy', 'in_consultation', 'break', 'offline', 'emergency'];
 const STATUS_CLR = { available: '#16a34a', busy: '#d97706', in_consultation: '#0891b2', break: '#a16207', offline: '#94a3b8', emergency: '#dc2626' };
 
 function parseTs(v) {
@@ -25,6 +27,7 @@ const mins = (hhmm, fb) => { const m = /^(\d\d):(\d\d)$/.exec(hhmm || ''); retur
 const sod = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const sameDay = (a, b) => sod(a).getTime() === sod(b).getTime();
 const clock = (m) => { const h = Math.floor(m / 60) % 24; const mm = m % 60; return `${((h + 11) % 12) + 1}:${String(mm).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+const initials = (n) => String(n || 'Dr').replace(/^Dr\.?\s*/i, '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 const minOfDay = (d) => d.getHours() * 60 + d.getMinutes();
 
 export function buildSlots(doc, tokens, day, now) {
@@ -69,7 +72,7 @@ export function buildSlots(doc, tokens, day, now) {
   const nextFree = slots.find((s) => s.kind === 'free');
   const onDuty = isToday && nowMin >= start && nowMin < end && !UNAVAILABLE.includes(doc.status);
   const current = slots.find((s) => s.from <= nowMin && nowMin < s.to);
-  const freeNow = onDuty && current && (current.kind === 'free');
+  const freeNow = onDuty && doc.status === 'available' && current && current.kind === 'free';
   return { slots, start, end, len, allotted: count('allotted') + count('queued'), free: count('free'), nextFree, overflow, onDuty, freeNow };
 }
 
@@ -78,6 +81,8 @@ const SLOT_STYLE = {
   past: { backgroundColor: '#F1F5F9', border: '1px solid #E2E8F0', color: '#94A3B8' },
   unavailable: { backgroundColor: '#FEF2F2', border: '1px dashed #FCA5A5', color: '#B91C1C' },
 };
+
+const tot0free = (rows) => rows.reduce((n, { d, s }) => n + (UNAVAILABLE.includes(d.status) ? 0 : s.free), 0);
 
 export default function DoctorSchedule({ day, doctors, tokens, hiddenDepts, selectedId, onSelect }) {
   const [now, setNow] = useState(() => new Date());
@@ -97,18 +102,28 @@ export default function DoctorSchedule({ day, doctors, tokens, hiddenDepts, sele
       .map((d) => ({ d, s: buildSlots(d, tokens || [], day, now) }));
   }, [doctors, tokens, day, now, q, hiddenDepts]);
 
-  const shown = rows.filter(({ d, s }) => (
-    filter === 'all' ? true
-      : filter === 'free' ? s.freeNow || (s.free > 0 && !UNAVAILABLE.includes(d.status))
-      : filter === 'busy' ? s.allotted > 0
-      : UNAVAILABLE.includes(d.status)
-  ));
+  const statusCount = useMemo(() => {
+    const c = Object.fromEntries(STATUS_ORDER.map((k) => [k, 0]));
+    for (const { d } of rows) if (c[d.status] != null) c[d.status]++;
+    return c;
+  }, [rows]);
+
+  // filter: all | status:<doctor status> | free (has free slots) | busy (has allotted slots)
+  const shown = rows.filter(({ d, s }) => {
+    if (filter === 'all') return true;
+    if (filter.startsWith('status:')) return d.status === filter.slice(7);
+    if (filter === 'free') return !UNAVAILABLE.includes(d.status) && s.free > 0;
+    if (filter === 'allotted') return s.allotted > 0;
+    return true;
+  });
 
   const startMin = Math.min(540, ...shown.map((r) => r.s.start));
   const endMin = Math.max(1020, ...shown.map((r) => r.s.end));
   const hours = []; for (let m = Math.ceil(startMin / 60) * 60; m <= endMin; m += 60) hours.push(m);
   const width = (endMin - startMin) * PX_PER_MIN;
-  const nowMin = sameDay(day, now) ? minOfDay(now) : null;
+  const isToday = sameDay(day, now);
+  const nowMin = isToday ? minOfDay(now) : null;
+  const allEnded = rows.length > 0 && rows.every(({ d, s }) => s.free === 0 || UNAVAILABLE.includes(d.status)) && tot0free(rows) === 0;
 
   const tot = rows.reduce((a, { d, s }) => ({
     onDuty: a.onDuty + (s.onDuty ? 1 : 0), freeNow: a.freeNow + (s.freeNow ? 1 : 0), allotted: a.allotted + s.allotted, free: a.free + (UNAVAILABLE.includes(d.status) ? 0 : s.free),
@@ -128,15 +143,42 @@ export default function DoctorSchedule({ day, doctors, tokens, hiddenDepts, sele
     <>
       <section className="flex min-w-0 flex-col">
         <div className="space-y-3 border-b border-slate-200 px-4 py-3">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {[['On duty now', tot.onDuty], ['Free right now', tot.freeNow], ['Allotted slots', tot.allotted], ['Free slots left', tot.free]].map(([l, v]) => (
-              <div key={l} className="rounded-xl bg-slate-50 px-3 py-2"><p className="text-lg font-black text-slate-900">{v}</p><p className="text-[11px] font-semibold text-slate-500">{l}</p></div>
-            ))}
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by doctor status">
+            <button type="button" onClick={() => setFilter('all')} aria-pressed={filter === 'all'}
+              className={`rounded-full border px-3 py-1.5 text-xs font-bold ${filter === 'all' ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}>
+              All doctors · {rows.length}
+            </button>
+            {STATUS_ORDER.filter((k) => k !== 'emergency' || statusCount[k] > 0).map((k) => {
+              const on = filter === `status:${k}`;
+              return (
+                <button key={k} type="button" onClick={() => setFilter(on ? 'all' : `status:${k}`)} aria-pressed={on}
+                  className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold"
+                  style={{ backgroundColor: on ? STATUS_CLR[k] : STATUS_BG[k], color: on ? '#fff' : '#102A43', borderColor: STATUS_CLR[k] }}>
+                  <i className="h-2 w-2 rounded-full" style={{ backgroundColor: on ? '#fff' : STATUS_CLR[k] }} />
+                  {STATUS_TXT[k]} · {statusCount[k]}
+                </button>
+              );
+            })}
           </div>
+          <p className="text-xs text-slate-500">
+            <b className="text-slate-800">{tot.onDuty}</b> on duty now · <b className="text-slate-800">{tot.freeNow}</b> free right now · <b className="text-slate-800">{tot.allotted}</b> allotted slots · <b className="text-slate-800">{tot.free}</b> free slots left today
+          </p>
+          {allEnded && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+              {isToday ? 'All doctor shifts for today have ended — use › to see tomorrow’s slots.' : 'No shift slots remaining for this day.'}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <input className="input !w-56 !py-1.5 text-sm" placeholder="Search doctor, room, specialty…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search doctors" />
             <select className="input !w-auto !py-1.5 text-sm" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter doctors">
-              <option value="all">All doctors</option><option value="free">Has free slots</option><option value="busy">Has allotted slots</option><option value="off">Offline / on break</option>
+              <option value="all">All doctors ({rows.length})</option>
+              <optgroup label="By status">
+                {STATUS_ORDER.map((k) => <option key={k} value={`status:${k}`}>{STATUS_TXT[k]} ({statusCount[k]})</option>)}
+              </optgroup>
+              <optgroup label="By slots">
+                <option value="free">Has free slots</option>
+                <option value="allotted">Has allotted slots</option>
+              </optgroup>
             </select>
             <span className="ml-auto flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
               <span className="flex items-center gap-1"><i className="h-3 w-4 rounded-sm" style={{ background: '#2563eb' }} />Allotted</span>
@@ -161,15 +203,15 @@ export default function DoctorSchedule({ day, doctors, tokens, hiddenDepts, sele
               const off = UNAVAILABLE.includes(d.status);
               const color = d.department_color || '#2563eb';
               return (
-                <div key={d.id} className={`flex border-b border-slate-100 ${selectedId === d.id ? 'bg-slate-50' : ''}`}>
-                  <button type="button" onClick={() => onSelect(selectedId === d.id ? null : d.id)} className="sticky left-0 z-20 flex shrink-0 items-center gap-2 border-r border-slate-200 bg-white px-3 py-2 text-left hover:bg-slate-50" style={{ width: NAME_W }}>
-                    <span className="h-9 w-1 shrink-0 rounded" style={{ backgroundColor: color }} />
+                <div key={d.id} className="flex border-b border-slate-100" style={{ backgroundColor: selectedId === d.id ? '#F1F5F9' : 'transparent' }}>
+                  <button type="button" onClick={() => onSelect(selectedId === d.id ? null : d.id)} className="sticky left-0 z-20 flex shrink-0 items-center gap-2 border-r border-slate-200 px-3 py-2 text-left hover:brightness-95" style={{ width: NAME_W, backgroundColor: STATUS_BG[d.status] || '#fff', boxShadow: `inset 4px 0 0 ${STATUS_CLR[d.status] || '#94a3b8'}` }}>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-black text-white" style={{ backgroundColor: STATUS_CLR[d.status] || '#94a3b8' }} aria-hidden="true">{initials(d.name)}</span>
                     <span className="min-w-0">
                       <b className="block truncate text-[13px] text-slate-800">{d.name}</b>
                       <span className="block truncate text-[11px] text-slate-500">{d.specialization || d.department_name}{d.room ? ` · ${d.room}` : ''}</span>
-                      <span className="flex items-center gap-1.5 text-[10px] font-semibold" style={{ color: STATUS_CLR[d.status] || '#64748b' }}>
-                        <i className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: STATUS_CLR[d.status] || '#64748b' }} />{STATUS_TXT[d.status] || d.status}
-                        <span className="font-medium text-slate-400">· {s.allotted} allotted · {off ? 0 : s.free} free</span>
+                      <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] font-semibold">
+                        <span className="whitespace-nowrap rounded-full px-1.5 py-0.5 text-white" style={{ backgroundColor: STATUS_CLR[d.status] || '#64748b' }}>{STATUS_TXT[d.status] || d.status}</span>
+                        <span className="font-medium text-slate-500">{s.allotted} allotted · {off ? 0 : s.free} free</span>
                       </span>
                     </span>
                   </button>

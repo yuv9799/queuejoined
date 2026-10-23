@@ -55,7 +55,7 @@ export function list({ departmentId, specialization, status, search, active, lim
     limit
   );
 
-  return rows.map((r) => withWorkload({ ...r, active: !!r.active, shift_start: r.shift_start || '09:00', shift_end: r.shift_end || '17:00' }));
+  return rows.map((r) => withWorkload({ ...r, active: !!r.active, shift_start: r.shift_start || '08:00', shift_end: r.shift_end || '20:00' }));
 }
 
 export function findById(id) {
@@ -70,7 +70,7 @@ export function findById(id) {
     id
   );
   if (!row) return null;
-  return withWorkload({ ...row, active: !!row.active, shift_start: row.shift_start || '09:00', shift_end: row.shift_end || '17:00' });
+  return withWorkload({ ...row, active: !!row.active, shift_start: row.shift_start || '08:00', shift_end: row.shift_end || '20:00' });
 }
 
 // Workload & queue status for a doctor.
@@ -165,8 +165,8 @@ export function create({
   status = STATUS.AVAILABLE,
   room = null,
   capacity = 0,
-  shift_start = '09:00',
-  shift_end = '17:00',
+  shift_start = '08:00',
+  shift_end = '20:00',
 }) {
   run(
     `INSERT INTO doctors (
@@ -183,8 +183,8 @@ export function create({
     status,
     room,
     capacity || 0,
-    validTime(shift_start) || '09:00',
-    validTime(shift_end) || '17:00'
+    validTime(shift_start) || '08:00',
+    validTime(shift_end) || '20:00'
   );
   return findById(lastInsertId());
 }

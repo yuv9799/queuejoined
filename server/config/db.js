@@ -225,12 +225,18 @@ function ensureColumn(table, column, ddl) {
   }
 }
 
-// Morning (09-13), afternoon (13-17) or full day (09-17), spread by doctor id.
+// Morning (08-14), afternoon (14-20) or full day (08-20), spread by doctor id.
 export function backfillDoctorShifts() {
   db.exec(`UPDATE doctors SET
-    shift_start = CASE id % 3 WHEN 0 THEN '13:00' ELSE '09:00' END,
-    shift_end   = CASE id % 3 WHEN 1 THEN '13:00' ELSE '17:00' END
+    shift_start = CASE id % 3 WHEN 0 THEN '14:00' ELSE '08:00' END,
+    shift_end   = CASE id % 3 WHEN 1 THEN '14:00' ELSE '20:00' END
     WHERE shift_start IS NULL OR shift_end IS NULL`);
+  // One-way upgrade of the first-generation demo shifts (09-13 / 13-17 / 09-17).
+  // Idempotent: the new values never match these patterns again.
+  db.exec(`UPDATE doctors SET
+    shift_start = CASE shift_start WHEN '09:00' THEN '08:00' ELSE '14:00' END,
+    shift_end   = CASE shift_end   WHEN '13:00' THEN '14:00' ELSE '20:00' END
+    WHERE (shift_start, shift_end) IN (('09:00','13:00'), ('13:00','17:00'), ('09:00','17:00'))`);
 }
 
 export function migrate() {
