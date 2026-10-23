@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { subscribeStaff } from '../services/socket.js';
 import StaffCalendar from '../components/StaffCalendar.jsx';
+import SlidingTabs from '../components/staff/SlidingTabs.jsx';
+import StaffHero, { Sparkline } from '../components/staff/StaffHero.jsx';
 import { useIsMobile } from '../hooks/useIsMobile.js';
 
 const STATUS_UI = {
@@ -412,29 +414,78 @@ export default function StaffConsole() {
   }
 
   // 1. OVERVIEW TAB
+  function parseLocal(v) {
+    if (!v) return null;
+    const iso = String(v).includes('T') ? v : String(v).replace(' ', 'T');
+    const d = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + 'Z');
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
   function renderOverview() {
     const s = dash || {};
-    const cards = [
-      { l: 'Patients Waiting', v: s.patientsWaiting || 0, tone: '#2563eb', desc: 'Active in queue' },
+    const today = new Date();
+    const mine = allTokens.map((t) => ({
+      t,
+      c: parseLocal(t.created_at),
+      k: parseLocal(t.called_at),
+      d: parseLocal(t.completed_at),
+    })).filter((x) => x.c && x.c.toDateString() === today.toDateString());
+    const hours = Array.from({ length: 13 }, (_, i) => 7 + i);
+    const issued = hours.map((h) => mine.filter((x) => x.c.getHours() === h).length);
+    const completedSeries = hours.map((h) => mine.filter((x) => x.d && x.d.getHours() === h).length);
+    const backlog = hours.map((h) => mine.filter((x) => x.c.getHours() <= h).length - mine.filter((x) => (x.k || x.d) && (x.k || x.d).getHours() <= h).length).map((v) => Math.max(0, v));
+    const peak = issued.indexOf(Math.max(...issued));
+    const issuedToday = mine.length;
+    const docAvail = s.doctorsAvailable || 0;
+    const docBreak = doctors.filter((d) => d.status === 'break').length;
+    const done = s.completedToday || 0;
+    const small = [
       { l: 'In Consultation', v: s.activeConsultations || 0, tone: '#0891b2', desc: 'Currently attending' },
-      { l: 'Doctors Available', v: s.doctorsAvailable || 0, tone: '#16a34a', desc: 'Ready for patients' },
       { l: 'Doctors Busy', v: s.doctorsBusy || 0, tone: '#dc2626', desc: 'In consult or busy' },
-      { l: 'Total Doctors', v: doctors.length, tone: '#7c3aed', desc: 'Hospital active roster' },
-      { l: 'Completed Today', v: s.completedToday || 0, tone: '#16a34a', desc: 'Consultations served' },
       { l: 'Urgent Patients', v: s.urgent || 0, tone: '#e11d48', desc: 'High priority queue' },
       { l: 'Unassigned Tokens', v: unassigned.length, tone: '#f59e0b', desc: 'Needs assignment' },
     ];
 
     return (
       <div className="space-y-6">
+        <StaffHero
+          name={user?.name} dash={s} tokens={allTokens} unassigned={unassigned.length} doctorsAvailable={docAvail}
+          onOpenCalendar={isMobile ? null : () => setTab('calendar')} onOpenQueue={() => setTab('live_queue')}
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-3xl bg-slate-900 p-5 text-white shadow-sm">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Tokens today</p>
+            <p className="mt-1 text-3xl font-black">{issuedToday}</p>
+            <div className="mt-2"><Sparkline values={issued} color="#ffffff" /></div>
+            <p className="mt-1 text-xs text-slate-400">{issuedToday > 0 ? `Busiest around ${hours[peak] % 12 || 12}${hours[peak] < 12 ? ' AM' : ' PM'}` : 'No tokens issued yet'}</p>
+          </div>
+          <div className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#E8F1FD' }}>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-blue-700">Patients waiting</p>
+            <p className="mt-1 text-3xl font-black text-blue-900">{s.patientsWaiting || 0}</p>
+            <div className="mt-2"><Sparkline values={backlog} color="#2563eb" /></div>
+            <p className="mt-1 text-xs text-blue-800/70">Queue size through the day</p>
+          </div>
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Doctors available</p>
+            <p className="mt-1 text-3xl font-black text-emerald-600">{docAvail}<span className="text-base font-semibold text-slate-400"> / {doctors.length}</span></p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-500 transition-all duration-700" style={{ width: `${doctors.length ? (docAvail / doctors.length) * 100 : 0}%` }} /></div>
+            <p className="mt-2 text-xs text-slate-500">{s.doctorsBusy || 0} busy · {docBreak} on break</p>
+          </div>
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Completed today</p>
+            <p className="mt-1 text-3xl font-black text-slate-900">{done}</p>
+            <div className="mt-2"><Sparkline values={completedSeries} color="#16a34a" /></div>
+            <p className="mt-1 text-xs text-slate-500">{issuedToday > 0 ? `${Math.round((done / issuedToday) * 100)}% of today's tokens` : 'Consultations served'}</p>
+          </div>
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {cards.map((c) => (
-            <div key={c.l} className="card shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{c.l}</p>
-              <p className="mt-1 text-3xl font-black" style={{ color: c.tone }}>
-                {c.v}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">{c.desc}</p>
+          {small.map((c) => (
+            <div key={c.l} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">{c.l}</p>
+              <p className="mt-1 text-2xl font-black" style={{ color: c.tone }}>{c.v}</p>
+              <p className="text-xs text-slate-400">{c.desc}</p>
             </div>
           ))}
         </div>
@@ -1131,23 +1182,30 @@ export default function StaffConsole() {
       </div>
 
       {/* Navigation Tabs */}
-      <nav className="flex flex-wrap gap-1.5 border-b border-slate-200 pb-2">
-        {tabs.map((t) => (
-          <button
-            key={t.k}
-            type="button"
-            className={`tab-button ${
-              tab === t.k
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-            }`}
-            onClick={() => setTab(t.k)}
-          >
-            <span>{t.icon}</span>
-            <span>{t.l}</span>
-          </button>
-        ))}
-      </nav>
+      {isMobile ? (
+        <nav className="flex flex-wrap gap-1.5 border-b border-slate-200 pb-2">
+          {tabs.map((t) => (
+            <button
+              key={t.k}
+              type="button"
+              className={`tab-button ${tab === t.k ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+              onClick={() => setTab(t.k)}
+            >
+              <span>{t.icon}</span>
+              <span>{t.l}</span>
+            </button>
+          ))}
+        </nav>
+      ) : (
+        <SlidingTabs
+          active={tab} onChange={setTab}
+          tabs={tabs.map((t) => ({
+            ...t,
+            badge: t.k === 'live_queue' ? (dash?.patientsWaiting || 0) : t.k === 'tokens' ? unassigned.length : 0,
+            badgeColor: t.k === 'tokens' ? '#ef4444' : '#f97316',
+          }))}
+        />
+      )}
 
       {/* Main Tab Content */}
       <div>

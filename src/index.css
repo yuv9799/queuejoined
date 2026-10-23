@@ -341,3 +341,7 @@ img, svg {
   .m-home .grid > * > span[aria-hidden="true"]:last-child { display: none; }
   .m-home .grid > * span.pr-9 { padding-right: 0; }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .sliding-pill { transition: none !important; }
+}
