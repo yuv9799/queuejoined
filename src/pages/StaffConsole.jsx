@@ -233,6 +233,40 @@ export default function StaffConsole() {
   const cancelToken = (t) =>
     runAction(() => api.cancelToken(t.id, token), `Token #${t.token_number} cancelled`);
 
+  // Doctors a token can be given to. Same-department doctors come first; others
+  // (and doctors on break / offline) are still selectable but need an override,
+  // which the server records in the audit log. Departments with NO doctors
+  // (e.g. Pharmacy, Billing) therefore never leave the dropdown empty.
+  const docNeedsOverride = (d, t) =>
+    (t?.department_id && Number(d.department_id) !== Number(t.department_id)) || ['break', 'offline'].includes(d.status);
+  const docOption = (d, t) => (
+    <option key={d.id} value={d.id}>
+      {d.name} · {d.specialization || d.department_name} ({STATUS_UI[d.status]?.label || d.status}{d.waiting != null ? ` · ${d.waiting} in queue` : ''}){docNeedsOverride(d, t) && ['break', 'offline'].includes(d.status) ? ' — override' : ''}
+    </option>
+  );
+  const renderDoctorOptions = (t) => {
+    const active = doctors.filter((d) => d.active !== false);
+    const same = active.filter((d) => !t?.department_id || Number(d.department_id) === Number(t.department_id));
+    const other = active.filter((d) => !same.includes(d));
+    return (
+      <>
+        {same.length > 0 && <optgroup label={`${t?.department_name || 'Same department'} (${same.length})`}>{same.map((d) => docOption(d, t))}</optgroup>}
+        {other.length > 0 && <optgroup label={`Other departments — override (${other.length})`}>{other.map((d) => docOption(d, t))}</optgroup>}
+      </>
+    );
+  };
+  const overrideNote = (t, id) => {
+    const d = doctors.find((x) => Number(x.id) === Number(id));
+    if (!t || !d || !docNeedsOverride(d, t)) return null;
+    return (
+      <p className="mt-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-800">
+        {['break', 'offline'].includes(d.status) ? `${d.name} is ${STATUS_UI[d.status]?.label?.toLowerCase() || d.status}. ` : `${d.name} belongs to ${d.department_name || 'another department'}. `}
+        This will be saved as a staff override in the audit log.
+      </p>
+    );
+  };
+  const hasDeptDoctors = (t) => !t?.department_id || doctors.some((d) => d.active !== false && Number(d.department_id) === Number(t.department_id));
+
   const handleReassign = async () => {
     if (!reassignModalToken || !reassignDoctorId) {
       return toast.error('Please select a doctor to assign');
@@ -243,7 +277,8 @@ export default function StaffConsole() {
           reassignModalToken.id,
           Number(reassignDoctorId),
           reassignReason.trim() || 'Staff reassignment',
-          token
+          token,
+          (() => { const d = doctors.find((x) => Number(x.id) === Number(reassignDoctorId)); return !!d && docNeedsOverride(d, reassignModalToken); })()
         ),
       `Token #${reassignModalToken.token_number} reassigned successfully`
     );
@@ -268,7 +303,8 @@ export default function StaffConsole() {
           assignModalToken.id,
           Number(assignDoctorId),
           assignNote.trim() || 'Initial doctor assignment',
-          token
+          token,
+          !!doc && docNeedsOverride(doc, assignModalToken)
         ),
       doc ? `Patient successfully assigned to Dr. ${doc.name}.` : 'Patient successfully assigned to a doctor.'
     );
@@ -1346,14 +1382,9 @@ export default function StaffConsole() {
                   onChange={(e) => setReassignDoctorId(e.target.value)}
                 >
                   <option value="">Choose a doctor...</option>
-                  {doctors
-                    .filter((d) => !reassignModalToken.department_id || Number(d.department_id) === Number(reassignModalToken.department_id))
-                    .map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name} · {d.specialization} ({d.status} · {d.waiting} in queue)
-                      </option>
-                    ))}
+                  {renderDoctorOptions(reassignModalToken)}
                 </select>
+                {overrideNote(reassignModalToken, reassignDoctorId)}
               </div>
 
               <div>
@@ -1411,14 +1442,14 @@ export default function StaffConsole() {
                   onChange={(e) => setAssignDoctorId(e.target.value)}
                 >
                   <option value="">Choose a doctor...</option>
-                  {doctors
-                    .filter((d) => !assignModalToken.department_id || Number(d.department_id) === Number(assignModalToken.department_id))
-                    .map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name} · {d.specialization} ({d.status} · {d.waiting} in queue)
-                      </option>
-                    ))}
+                  {renderDoctorOptions(assignModalToken)}
                 </select>
+                {!hasDeptDoctors(assignModalToken) && (
+                  <p className="mt-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-600">
+                    {assignModalToken.department_name} has no doctors registered (it is a counter service), so doctors from other departments are listed.
+                  </p>
+                )}
+                {overrideNote(assignModalToken, assignDoctorId)}
               </div>
 
               <div>

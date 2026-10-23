@@ -23,7 +23,7 @@ router.get('/dashboard', requireAuth, requireRole('admin', 'officer', 'reception
   const doctorsUnavailable = doctors.filter((d) => ['break', 'offline'].includes(d.status) || !d.active).length;
 
   // Attention: queued tokens with no doctor assignment yet.
-  const unassigned = get("SELECT COUNT(*) AS n FROM tokens WHERE status = 'queued' AND doctor_id IS NULL")?.n || 0;
+  const unassigned = get("SELECT COUNT(*) AS n FROM tokens WHERE status = 'queued' AND doctor_id IS NULL AND department_id IN (SELECT department_id FROM doctors WHERE active = 1 AND department_id IS NOT NULL)")?.n || 0;
   const notificationFailures = Notify.list({}).filter((n) => ['FAILED', 'RETRYING'].includes(n.status) || (n.status === 'PENDING' && n.channel !== 'web')).length;
 
   res.json({

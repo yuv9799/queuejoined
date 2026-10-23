@@ -141,10 +141,10 @@ export const api = {
     request(`/tokens/${id}/estimate`, { method: 'POST', body: payload, token }),
   tokenPriority: (id, priority, reason, token) =>
     request(`/tokens/${id}/priority`, { method: 'POST', body: { priority, reason }, token }),
-  tokenReassignDoctor: (id, doctorId, reason, token) =>
-    request(`/tokens/${id}/assign-doctor`, { method: 'POST', body: { doctorId, reason }, token }),
-  tokenAssignDoctor: (id, doctorId, note, token) =>
-    request(`/tokens/${id}/assign-doctor`, { method: 'POST', body: { doctorId, reason: note }, token }),
+  tokenReassignDoctor: (id, doctorId, reason, token, override = false) =>
+    request(`/tokens/${id}/assign-doctor`, { method: 'POST', body: { doctorId, reason, override }, token }),
+  tokenAssignDoctor: (id, doctorId, note, token, override = false) =>
+    request(`/tokens/${id}/assign-doctor`, { method: 'POST', body: { doctorId, reason: note, override }, token }),
 
   // Doctors
   doctors: (params = {}, token, signal) => {

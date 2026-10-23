@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { all } from '../config/db.js';
 import * as Doctor from '../models/Doctor.js';
 import * as Dept from '../models/Department.js';
 import * as Token from '../models/Token.js';
@@ -33,7 +34,10 @@ router.get('/live', requireAuth, requireRole('officer', 'admin', 'reception'), (
 // GET /queues/unassigned — queued tokens with no doctor assignment yet
 // (these drive the "needs assignment / attention" panel).
 router.get('/unassigned', requireAuth, requireRole('officer', 'admin', 'reception'), (req, res) => {
-  res.json({ tokens: Token.list({ status: 'queued' }).filter((t) => !t.doctor_id) });
+  // Counter services (Pharmacy, Billing, Registration, labs…) have no doctors, so
+  // their tokens never "need a doctor" and are excluded here.
+  const staffed = new Set(all('SELECT DISTINCT department_id AS id FROM doctors WHERE active = 1 AND department_id IS NOT NULL').map((r) => r.id));
+  res.json({ tokens: Token.list({ status: 'queued' }).filter((t) => !t.doctor_id && staffed.has(t.department_id)) });
 });
 
 export default router;
